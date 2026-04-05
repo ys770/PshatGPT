@@ -1266,7 +1266,12 @@ function buildLogicChainMessage(daf) {
 
 function openIyunMode() {
   if (!currentDaf) return;
-  if (!confirm(`Iyun (research) mode does deep analysis with multiple source lookups. You get 2/day free.\n\nProceed?`)) return;
+  const remaining = getIyunRemaining();
+  if (remaining <= 0) {
+    alert("You've used your 2 free Iyun sessions on this device. Add your own API key in Settings for unlimited access.");
+    return;
+  }
+  if (!confirm(`Iyun (research) mode does deep analysis with multiple source lookups.\n\nYou have ${remaining}/2 Iyun sessions remaining on this device (lifetime, no reset).\n\nProceed?`)) return;
   $("#modal-kind").textContent = "iyun";
   $("#modal-kind").classList.remove("modal-kind-deep");
   $("#modal-kind").classList.add("modal-kind-iyun");
@@ -1701,7 +1706,7 @@ function renderBadge() {
   const total = getLimit();
   const iyunRem = getIyunRemaining();
   const denominator = Math.max(total, rem);
-  badge.innerHTML = `<span class="badge-num">${rem}</span> / ${denominator} free explanations · <span class="badge-iyun">${iyunRem}/${IYUN_CAP} iyun</span>`;
+  badge.innerHTML = `<span class="badge-num">${rem}</span> / ${denominator} today · <span class="badge-iyun">${iyunRem}/${IYUN_CAP} iyun ever</span>`;
   badge.style.display = "block";
   badge.classList.toggle("low", rem <= 2);
   badge.classList.toggle("empty", rem <= 0);
@@ -1711,21 +1716,18 @@ function updateFreeTierBadge(remaining, limit) {
   setRemaining(remaining, limit);
 }
 
-// Separate tracking for Iyun mode (much more expensive, limited to 2/day).
+// Separate tracking for Iyun mode (LIFETIME cap per device — no daily reset).
 const IYUN_REMAINING_KEY = "pshatgpt_iyun_remaining";
 const IYUN_LIMIT_KEY = "pshatgpt_iyun_limit";
 const IYUN_CAP = 2;
 
 function getIyunRemaining() {
-  const savedDay = localStorage.getItem(REMAINING_DAY_KEY);
-  if (savedDay !== currentUtcDay()) return IYUN_CAP;
   const n = localStorage.getItem(IYUN_REMAINING_KEY);
   return n === null ? IYUN_CAP : parseInt(n, 10);
 }
 function updateIyunBadge(remaining, limit) {
   localStorage.setItem(IYUN_REMAINING_KEY, String(remaining));
   if (limit) localStorage.setItem(IYUN_LIMIT_KEY, String(limit));
-  localStorage.setItem(REMAINING_DAY_KEY, currentUtcDay());
   renderBadge();
 }
 

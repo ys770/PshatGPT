@@ -35,15 +35,17 @@ function todayKey() {
 async function checkAndIncrementRateLimit(env, ip, clientId, mode) {
   const isIyun = mode === "iyun";
   const deviceCap = isIyun
-    ? parseInt(env.IYUN_DAILY || "2", 10)
+    ? parseInt(env.IYUN_LIFETIME || "2", 10)
     : parseInt(env.DEVICE_DAILY || "10", 10);
   const ipCap = parseInt(env.FREE_TIER_DAILY || "25", 10);
   const day = todayKey();
-  const devKeyPrefix = isIyun ? "iyun" : "dev";
-  const devKey = clientId ? `${devKeyPrefix}:${clientId}:${day}` : null;
+  // Iyun: lifetime counter (no date, no TTL).
+  // Normal: daily counter (resets at UTC midnight via TTL).
+  const devKey = clientId
+    ? (isIyun ? `iyun:${clientId}` : `dev:${clientId}:${day}`)
+    : null;
   const ipKey = `ip:${ip}:${day}`;
 
-  // Read both counters in parallel.
   const [devCurRaw, ipCurRaw] = await Promise.all([
     devKey ? env.PSHATGPT.get(devKey) : Promise.resolve(null),
     env.PSHATGPT.get(ipKey),
@@ -58,13 +60,11 @@ async function checkAndIncrementRateLimit(env, ip, clientId, mode) {
     return { allowed: false, reason: "ip", remaining: 0, limit: ipCap };
   }
 
-  // Increment both. For iyun we increment IP counter by a weight since it
-  // costs ~10x more in tokens.
-  const ttl = 172800;
   const ipIncrement = isIyun ? 5 : 1;
+  const devPutOpts = isIyun ? {} : { expirationTtl: 172800 }; // iyun: no TTL
   await Promise.all([
-    devKey ? env.PSHATGPT.put(devKey, String(devUsed + 1), { expirationTtl: ttl }) : Promise.resolve(),
-    env.PSHATGPT.put(ipKey, String(ipUsed + ipIncrement), { expirationTtl: ttl }),
+    devKey ? env.PSHATGPT.put(devKey, String(devUsed + 1), devPutOpts) : Promise.resolve(),
+    env.PSHATGPT.put(ipKey, String(ipUsed + ipIncrement), { expirationTtl: 172800 }),
   ]);
 
   const devRemaining = devKey ? deviceCap - devUsed - 1 : Infinity;
@@ -121,7 +121,7 @@ export default {
     if (!rl.allowed) {
       const msg =
         rl.reason === "iyun"
-          ? `You've used your ${rl.limit} free Iyun (research) sessions for today. Add your own Anthropic API key in Settings for unlimited access.`
+          ? `You've used all ${rl.limit} free Iyun (research) sessions on this device (lifetime cap). Add your own Anthropic API key in Settings for unlimited access.`
           : rl.reason === "ip"
           ? `Your network has hit its daily free-tier limit. Add your own Anthropic API key in Settings for unlimited explanations.`
           : `Daily free-tier limit reached (${rl.limit}). Add your own Anthropic API key in Settings for unlimited explanations.`;
