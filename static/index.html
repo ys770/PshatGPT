@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PshatGPT</title>
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <h1>PshatGPT</h1>
+    <button id="settings-btn" class="icon-btn" aria-label="Settings">⚙</button>
+    <div id="picker">
+      <select id="tractate-select" aria-label="Tractate"></select>
+      <input id="daf-number" type="number" min="2" placeholder="daf" aria-label="Daf number" />
+      <div class="amud-toggle" role="radiogroup" aria-label="Amud">
+        <button type="button" data-amud="a" class="amud-btn active">a</button>
+        <button type="button" data-amud="b" class="amud-btn">b</button>
+      </div>
+      <button id="load-btn">Load</button>
+      <span id="daf-hint" class="muted"></span>
+    </div>
+  </header>
+
+  <main>
+    <div id="daf-header">
+      <h2 id="daf-title">Enter a ref above to begin</h2>
+    </div>
+    <div id="daf"></div>
+  </main>
+
+  <!-- Modal -->
+  <div id="modal" class="modal-hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop" data-close></div>
+    <div class="modal-box">
+      <header class="modal-header">
+        <div>
+          <span id="modal-kind" class="modal-kind"></span>
+          <span id="modal-ref" class="modal-ref"></span>
+        </div>
+        <button class="modal-close" data-close aria-label="Close">×</button>
+      </header>
+      <div id="modal-source" class="modal-source"></div>
+      <div id="modal-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Settings modal -->
+  <div id="settings-modal" class="modal-hidden" role="dialog" aria-modal="true">
+    <div class="modal-backdrop" data-close-settings></div>
+    <div class="modal-box settings-box">
+      <header class="modal-header">
+        <div><span class="modal-kind">settings</span></div>
+        <button class="modal-close" data-close-settings aria-label="Close">×</button>
+      </header>
+      <div class="settings-body">
+        <label>
+          <div class="settings-label">Anthropic API Key</div>
+          <input id="api-key-input" type="password" placeholder="sk-ant-..." />
+        </label>
+        <p class="settings-help">
+          Your key is stored only in this browser's localStorage and sent directly
+          with each explain request. It never touches our server logs.
+          Get one at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noreferrer">console.anthropic.com</a>.
+        </p>
+        <div class="settings-actions">
+          <button id="api-key-save">Save</button>
+          <button id="api-key-clear" class="secondary">Clear</button>
+          <span id="api-key-status" class="muted"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

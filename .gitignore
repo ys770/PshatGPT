@@ -1,0 +1,22 @@
+# Secrets — NEVER commit
+.env
+.env.local
+*.key
+
+# The 3GB of scanned Shas PDFs — too big for git, users download separately
+tzuras_hadaf_pdfs/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

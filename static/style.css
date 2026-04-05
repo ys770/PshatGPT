@@ -1,0 +1,239 @@
+:root {
+  --bg: #f5efe0;
+  --ink: #1a1a1a;
+  --muted: #6b6257;
+  --accent: #7a3b2e;
+  --card: #fffdf5;
+  --rule: #d9cfb7;
+  --gemara-bg: #fffdf5;
+  --mefaresh-bg: #faf4e4;
+  --hover: #fff5dc;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); }
+body { font-family: "Iowan Old Style", Georgia, "Times New Roman", serif; line-height: 1.6; }
+
+/* Header */
+header {
+  padding: 1rem 2rem;
+  border-bottom: 1px solid var(--rule);
+  display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;
+  background: var(--card);
+}
+header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
+.icon-btn {
+  background: transparent; border: 1px solid var(--rule); color: var(--ink);
+  padding: 0.3rem 0.55rem; border-radius: 3px; cursor: pointer;
+  font-size: 1.1rem; line-height: 1;
+}
+.icon-btn:hover { background: var(--hover); border-color: var(--accent); }
+#picker { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+#picker select, #picker input {
+  padding: 0.4rem 0.6rem; border: 1px solid var(--rule); border-radius: 3px;
+  font-family: inherit; font-size: 0.9rem; background: var(--bg); color: var(--ink);
+}
+#picker select { min-width: 180px; }
+#picker input { width: 70px; }
+#picker select:focus, #picker input:focus { outline: none; border-color: var(--accent); }
+
+.amud-toggle { display: flex; border: 1px solid var(--rule); border-radius: 3px; overflow: hidden; }
+.amud-btn {
+  background: var(--bg); border: none; padding: 0.4rem 0.7rem;
+  font-family: inherit; font-size: 0.85rem; cursor: pointer; color: var(--ink);
+  border-right: 1px solid var(--rule);
+}
+.amud-btn:last-child { border-right: none; }
+.amud-btn.active { background: var(--accent); color: var(--card); }
+.amud-btn:hover:not(.active) { background: var(--hover); }
+
+#load-btn {
+  background: var(--accent); color: var(--card); border: none;
+  padding: 0.4rem 0.85rem; border-radius: 3px; cursor: pointer;
+  font-family: inherit; font-size: 0.85rem;
+}
+#daf-hint { font-size: 0.75rem; margin-left: 0.25rem; }
+
+/* Main */
+main { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+#daf-header { margin-bottom: 1.5rem; }
+#daf-header h2 { margin: 0; font-size: 1.6rem; color: var(--accent); }
+
+/* Tzuras hadaf — authentic Vilna page look */
+#daf {
+  background: var(--gemara-bg);
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 1.75rem 2rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.daf-page {
+  direction: rtl;
+  text-align: justify;
+  font-family: "Frank Ruhl Libre", "SBL Hebrew", "David", "Times New Roman", serif;
+}
+
+/* Gemara — the central flowing text block */
+.gemara-body {
+  font-size: 1.28rem;
+  line-height: 1.85;
+  color: #111;
+  /* justify without trailing last-line gap looks weird in Hebrew — leave default */
+}
+
+/* Floated margins — Rashi/Rashbam on visual left, Tosafot on visual right */
+.rashi-margin, .tosafot-margin {
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: #2a2a2a;
+  padding: 0.1rem 0.4rem;
+  margin-bottom: 0.4rem;
+}
+.rashi-margin {
+  float: left;
+  width: 30%;
+  margin-left: 0;
+  margin-right: 0.9rem;
+  padding-right: 0.6rem;
+  border-right: 1px solid var(--rule);
+}
+.tosafot-margin {
+  float: right;
+  width: 30%;
+  margin-right: 0;
+  margin-left: 0.9rem;
+  padding-left: 0.6rem;
+  border-left: 1px solid var(--rule);
+}
+.margin-label {
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px dotted var(--rule);
+  text-align: center;
+  font-family: Georgia, serif;
+}
+.margin-label .he { display: block; font-size: 0.95rem; color: var(--accent); margin-top: 0.15rem; font-family: "Frank Ruhl Libre", "David", serif; letter-spacing: 0; text-transform: none; }
+
+/* Clear float after both margins */
+.daf-page::after { content: ""; display: table; clear: both; }
+
+/* Clickable spans inline in the gemara body */
+.seg, .dibur {
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background 0.12s, box-shadow 0.12s;
+}
+.seg:hover, .dibur:hover {
+  background: var(--hover);
+  box-shadow: 0 0 0 2px var(--hover);
+}
+
+/* Dibur separation in margins */
+.dibur { display: block; margin-bottom: 0.55rem; padding-bottom: 0.35rem; }
+.dibur + .dibur { border-top: 1px dotted var(--rule); padding-top: 0.35rem; }
+.dibur:last-child { border-bottom: none; margin-bottom: 0; }
+
+/* The first few words of a dibur (headword) often in bold in print */
+.dibur-head { font-weight: 700; color: var(--accent); }
+
+/* Responsive: stack on narrow screens */
+@media (max-width: 900px) {
+  .rashi-margin, .tosafot-margin {
+    float: none; width: auto; margin: 0 0 1rem 0;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--rule); border-radius: 3px;
+    background: var(--mefaresh-bg);
+  }
+  .gemara-body { font-size: 1.1rem; }
+  #daf { padding: 1rem; }
+}
+
+/* Modal */
+.modal-hidden { display: none !important; }
+#modal {
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn 0.15s;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal-backdrop {
+  position: absolute; inset: 0;
+  background: rgba(20, 15, 10, 0.55);
+}
+.modal-box {
+  position: relative;
+  background: var(--card);
+  border-radius: 6px;
+  width: min(720px, 90vw);
+  max-height: 85vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+.modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.9rem 1.25rem;
+  border-bottom: 1px solid var(--rule);
+  background: var(--mefaresh-bg);
+}
+.modal-kind {
+  font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--card); background: var(--accent);
+  padding: 0.2rem 0.55rem; border-radius: 3px; margin-right: 0.6rem;
+}
+.modal-ref { font-size: 0.85rem; color: var(--muted); font-family: monospace; }
+.modal-close {
+  background: transparent; border: none; color: var(--muted);
+  font-size: 1.6rem; line-height: 1; cursor: pointer; padding: 0 0.3rem;
+}
+.modal-close:hover { color: var(--accent); }
+.modal-source {
+  padding: 0.9rem 1.25rem;
+  background: var(--bg);
+  border-bottom: 1px solid var(--rule);
+  max-height: 140px; overflow-y: auto;
+}
+.modal-source .hebrew-text { font-size: 1rem; }
+.modal-body {
+  padding: 1rem 1.25rem;
+  overflow-y: auto;
+  font-size: 0.95rem;
+  line-height: 1.65;
+  flex: 1;
+  min-height: 120px;
+  white-space: pre-wrap;
+}
+.modal-body strong { color: var(--accent); }
+
+/* Settings */
+.settings-box { max-width: 500px; }
+.settings-body { padding: 1.25rem; }
+.settings-label { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.35rem; font-weight: 600; }
+.settings-body input {
+  width: 100%; padding: 0.5rem 0.7rem; border: 1px solid var(--rule); border-radius: 3px;
+  font-family: "Menlo", "Consolas", monospace; font-size: 0.85rem;
+  background: var(--bg); color: var(--ink);
+}
+.settings-body input:focus { outline: none; border-color: var(--accent); }
+.settings-help { font-size: 0.8rem; color: var(--muted); line-height: 1.5; margin: 0.75rem 0; }
+.settings-help a { color: var(--accent); }
+.settings-actions { display: flex; align-items: center; gap: 0.6rem; margin-top: 1rem; }
+.settings-actions button {
+  background: var(--accent); color: var(--card); border: none;
+  padding: 0.4rem 0.85rem; border-radius: 3px; cursor: pointer;
+  font-family: inherit; font-size: 0.85rem;
+}
+.settings-actions button.secondary { background: transparent; color: var(--ink); border: 1px solid var(--rule); }
+.settings-actions button.secondary:hover { background: var(--hover); }
+.modal-body .cursor {
+  display: inline-block; width: 0.5ch; height: 1em;
+  background: var(--accent); vertical-align: text-bottom;
+  animation: blink 0.9s infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
