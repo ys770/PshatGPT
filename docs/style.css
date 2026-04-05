@@ -72,6 +72,17 @@ header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
 
 /* Hero: big wordmark + tagline */
 .landing-hero { text-align: center; margin-bottom: 3rem; }
+.wordmark-wrap {
+  display: inline-flex; align-items: flex-start; gap: 0.6rem;
+}
+.preview-badge {
+  display: inline-block; margin-top: 0.6rem;
+  font-size: 0.6rem; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--card); background: var(--muted);
+  padding: 0.25rem 0.5rem; border-radius: 3px;
+  align-self: center;
+}
 .wordmark {
   font-family: "Frank Ruhl Libre", "David", Georgia, serif;
   font-weight: 700;
@@ -219,6 +230,39 @@ header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
   text-transform: uppercase; font-weight: 600; margin-bottom: 0.6rem;
 }
 .featured-card-note { font-size: 0.85rem; line-height: 1.45; color: var(--muted); }
+
+/* Roadmap / coming-soon section */
+.roadmap {
+  margin-top: 3rem;
+  max-width: 680px; margin-left: auto; margin-right: auto;
+  padding: 1.25rem 1.5rem;
+  background: rgba(255,253,245,0.5);
+  border: 1px dashed var(--rule);
+  border-radius: 6px;
+}
+.roadmap-label {
+  font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted); font-weight: 700; text-align: center;
+  margin-bottom: 1rem;
+}
+.roadmap-list { list-style: none; padding: 0; margin: 0; }
+.roadmap-list li {
+  padding: 0.75rem 0; border-bottom: 1px dotted var(--rule);
+  display: flex; flex-direction: column; gap: 0.2rem;
+}
+.roadmap-list li:last-child { border-bottom: none; }
+.roadmap-title {
+  font-size: 0.92rem; font-weight: 600; color: var(--ink);
+}
+.roadmap-title::before {
+  content: "→"; color: var(--accent); margin-right: 0.5rem; font-weight: 700;
+}
+.roadmap-note { font-size: 0.82rem; line-height: 1.5; color: var(--muted); padding-left: 1.15rem; }
+.roadmap-footnote {
+  margin: 1rem 0 0; padding-top: 0.75rem;
+  border-top: 1px dotted var(--rule);
+  font-size: 0.75rem; text-align: center; font-style: italic;
+}
 
 .landing-footnote {
   margin-top: 2.5rem; font-size: 0.82rem; text-align: center;

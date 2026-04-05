@@ -102,8 +102,19 @@ static/
 └── app.js
 ```
 
+## Status
+
+**This is a preview.** It works end-to-end for clicking gemara/Rashi/Tosafot and getting a Claude-streamed explanation, but there's meaningful work still ahead.
+
+Some planned features may eventually move behind a paid tier.
+
 ## Roadmap
 
+**Core quality:**
+- [ ] **Deeper pshat-style reasoning** — explanations tuned to read the text the way a rebbi would: context-aware, sugya-aware, faithful to the classical meforshim
+- [ ] **Authentic tzuras hadaf** — true Vilna-style page layout with the gemara wrapping around Rashi and Tosafot (not the current 3-column approximation)
+
+**Features:**
 - [ ] PDF-scan view toggle (calibrate tzuras hadaf images from the Shas Nehardea set)
 - [ ] Cross-reference navigation — click into an explanation's citations
 - [ ] Save / pin explanations for review
