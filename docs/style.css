@@ -38,9 +38,10 @@ header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
   --ed-cream: #e8dcc6;
   --ed-brass: #c68b3a;
   --ed-brass-dim: #a26f2a;
-  --ed-warm-muted: #8c7966;
+  --ed-warm-muted: #ad9a84;
+  --ed-warm-muted-soft: #8a7864;
   --ed-rule: rgba(243, 234, 216, 0.14);
-  --ed-rule-strong: rgba(243, 234, 216, 0.28);
+  --ed-rule-strong: rgba(243, 234, 216, 0.32);
 
   position: relative;
   min-height: 100vh;
@@ -147,56 +148,48 @@ header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
   font-family: 'Fraunces', Georgia, serif;
   font-size: 1.02rem;
   line-height: 1.65;
-  color: var(--ed-warm-muted);
+  color: var(--ed-cream);
   margin: 0;
   max-width: 36rem;
   font-weight: 300;
+  opacity: 0.85;
 }
 
-/* Giant Hebrew hero glyph */
+/* Logo as hero glyph */
 .ed-hero-glyph {
   text-align: center;
   position: relative;
   user-select: none;
+  padding: 1rem;
 }
-.ed-glyph-he {
-  font-family: 'Frank Ruhl Libre', 'David', serif;
-  font-weight: 900;
-  font-size: clamp(7rem, 14vw, 13rem);
-  line-height: 0.9;
-  color: var(--ed-ivory);
-  direction: rtl;
-  letter-spacing: -0.02em;
-  position: relative;
-  display: inline-block;
-  animation: edGlyphIn 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both;
-  text-shadow:
-    0 0 40px rgba(198, 139, 58, 0.15),
-    0 2px 0 rgba(0,0,0,0.5);
-}
-.ed-glyph-he::after {
+.ed-hero-glyph::before {
   content: "";
   position: absolute;
-  bottom: 0.12em; left: -0.05em; right: -0.05em;
-  height: 3px;
-  background: linear-gradient(90deg, transparent, var(--ed-brass), transparent);
-  opacity: 0.6;
+  top: 50%; left: 50%;
+  width: 70%; height: 70%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(198, 139, 58, 0.18), transparent 60%);
+  filter: blur(20px);
+  pointer-events: none;
+  z-index: 0;
+}
+.ed-logo-glyph {
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+  /* Invert the dark-ink logo for dark theme, warm it slightly */
+  filter: invert(0.94) sepia(0.12) hue-rotate(-8deg) saturate(0.85)
+          drop-shadow(0 2px 0 rgba(0,0,0,0.4));
+  animation: edGlyphIn 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both;
 }
 @keyframes edGlyphIn {
-  0%   { opacity: 0; transform: scale(0.92); }
+  0%   { opacity: 0; transform: scale(0.94); }
   100% { opacity: 1; transform: scale(1); }
 }
-.ed-glyph-sub {
-  font-family: 'Fraunces', serif;
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: 0.3em;
-  text-transform: uppercase;
-  color: var(--ed-warm-muted);
-  margin-top: 0.75rem;
-}
-.ed-glyph-dot { color: var(--ed-brass); margin-right: 0.2em; }
-.ed-glyph-gpt { color: var(--ed-cream); }
 
 /* ─── INLINE CHOOSER ─────────────────── */
 .ed-chooser {
@@ -411,7 +404,8 @@ header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
   font-size: 0.88rem;
   font-weight: 300;
   line-height: 1.55;
-  color: var(--ed-warm-muted);
+  color: var(--ed-cream);
+  opacity: 0.75;
   margin: 0;
   max-width: 36rem;
 }
@@ -459,7 +453,8 @@ header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
   font-size: 0.88rem;
   font-weight: 300;
   line-height: 1.55;
-  color: var(--ed-warm-muted);
+  color: var(--ed-cream);
+  opacity: 0.75;
   margin: 0;
 }
 

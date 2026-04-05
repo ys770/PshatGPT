@@ -574,10 +574,10 @@ $$("[data-landing-amud]").forEach(b =>
   b.addEventListener("click", () => setLandingAmud(b.dataset.landingAmud)));
 $("#landing-settings-link").addEventListener("click", e => { e.preventDefault(); openSettings(); });
 
-// Featured sugya cards — jump straight into a preset ref
-$$(".featured-card").forEach(card => {
-  card.addEventListener("click", () => {
-    const ref = card.dataset.ref;
+// Featured sugya items — jump straight into a preset ref
+$$(".ed-feature, .featured-card").forEach(el => {
+  el.addEventListener("click", () => {
+    const ref = el.dataset.ref;
     if (!ref) return;
     // Find tractate in index to get its meforshim list.
     const m = ref.match(/^(.+?)\s+(\d+)([ab])$/);
