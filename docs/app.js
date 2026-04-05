@@ -190,6 +190,7 @@ let conversation = [];       // [{role, content}, ...] within one modal session
 let currentSystem = "";
 let currentUserPrefix = "";
 let currentMaxTokens = 2048;
+let currentMode = "normal";  // "normal" | "iyun"
 
 // ---------- Sefaria fetching ----------
 const TAG_RE = /<[^>]+>/g;
@@ -912,7 +913,13 @@ function anyModalOpen() {
          !$("#settings-modal").classList.contains("modal-hidden");
 }
 
+function resetMode() {
+  currentMode = "normal";
+  $("#modal-kind").classList.remove("modal-kind-iyun");
+}
+
 function openExplain(ref, kind, hebrewText, englishText, context) {
+  resetMode();
   $("#modal-kind").textContent = kind;
   $("#modal-ref").textContent = ref;
   const src = $("#modal-source");
@@ -955,6 +962,50 @@ function closeModal() {
 // A commentary longer than this triggers the deep-analysis system prompt.
 const DEEP_THRESHOLD = 400;
 const DEEP_MAX_TOKENS = 4096;
+
+const IYUN_MODE_PROMPT = `You are a rosh yeshiva doing **iyun** — deep, comprehensive research on a sugya. The learner has activated research mode (this is expensive so use your tools thoughtfully). Produce a structured, thorough analysis.
+
+## What to cover
+
+1. **Sugya overview** (2-3 sentences on the central question)
+
+2. **Key halachic/lomdus concepts**
+   List every core concept the sugya invokes (migo, chazaka, lo chatzif, ho'il, shevuah, mah li l'shaker, tefisah, etc.). For each:
+   - Define it in plain English
+   - Name its source sugya if known
+   - Note its limits and exceptions
+   - USE THE fetch_sefaria_text TOOL to pull the foundational source when useful
+
+3. **The logical flow of the sugya**
+   Step by step: what each voice contributes, how the dialectic builds, what's resolved vs left open.
+
+4. **Parallels and applications**
+   - Fetch 1-3 relevant parallel sugyot the gemara/meforshim cite
+   - Fetch the halachic application in Rambam / Tur / Shulchan Aruch if relevant
+   - Show how this sugya's principles apply in those parallels
+
+5. **Rishonim machlokes**
+   Where the rishonim (Rashi/Rashbam, Tosafot, Ramban, Rashba, etc.) genuinely diverge. What's at stake in each machlokes?
+
+6. **Open questions for further iyun**
+   Kushyas that would be worth pursuing; sugyas that would deepen this one.
+
+## How to use tools
+
+Be aggressive with fetch_sefaria_text:
+- When the sugya references another sugya, FETCH it
+- When meforshim cite a parallel case, FETCH it
+- When you want to show the halachic l'maaseh, FETCH Rambam/SA
+- When you describe a concept's source sugya, FETCH a line or two to show it
+- Aim for 3-8 tool calls in a single iyun session
+
+But: each fetch must be a specific ref. Don't fetch generic searches. Don't fetch the same ref twice. After fetching, quote and analyze what you got.
+
+## Output style
+
+Long-form (1500-3000 words). Structured with markdown headers. Hebrew+English quotes inline. This is iyun, not a summary — the learner expects depth. Think "shiur klali" quality, not "daf summary."
+
+All anti-hallucination rules still apply: don't fabricate anything, ground claims in what you actually fetched or were given.`;
 
 const LOGIC_CHAIN_PROMPT = `You are mapping the **logic chain** of a sugya for a learner — showing every named voice, what they hold, and how they relate to each other.
 
@@ -1213,8 +1264,31 @@ function buildLogicChainMessage(daf) {
   return lines.join("\n");
 }
 
+function openIyunMode() {
+  if (!currentDaf) return;
+  if (!confirm(`Iyun (research) mode does deep analysis with multiple source lookups. You get 2/day free.\n\nProceed?`)) return;
+  $("#modal-kind").textContent = "iyun";
+  $("#modal-kind").classList.remove("modal-kind-deep");
+  $("#modal-kind").classList.add("modal-kind-iyun");
+  $("#modal-ref").textContent = currentDaf.base_ref;
+  const src = $("#modal-source");
+  src.innerHTML = `<div style="font-family: Georgia, serif; font-size: 0.85rem; color: var(--muted); font-style: italic;">Deep research on this sugya — fetching parallels, halachic applications, concept sources…</div>`;
+  $("#modal-body").innerHTML = '<span class="cursor"></span>';
+  conversation = [];
+  currentSystem = IYUN_MODE_PROMPT;
+  currentMaxTokens = 8192;
+  currentMode = "iyun";
+  currentUserPrefix = buildLogicChainMessage(currentDaf); // reuses the rich daf context builder
+  $("#followup-input").value = "";
+  $("#modal").classList.remove("modal-hidden");
+  lockBodyScroll();
+  conversation = [{ role: "user", content: currentUserPrefix }];
+  streamTurn();
+}
+
 function openLogicChain() {
   if (!currentDaf) return;
+  resetMode();
   $("#modal-kind").textContent = "logic chain";
   $("#modal-kind").classList.remove("modal-kind-deep");
   $("#modal-ref").textContent = currentDaf.base_ref;
@@ -1340,6 +1414,7 @@ async function streamTurn(toolRound = 0) {
   const headers = { "content-type": "application/json" };
   if (useProxy) {
     headers["x-client-id"] = getClientId();
+    headers["x-mode"] = currentMode;
   } else {
     headers["x-api-key"] = apiKey;
     headers["anthropic-version"] = "2023-06-01";
@@ -1388,8 +1463,13 @@ async function streamTurn(toolRound = 0) {
   if (useProxy) {
     const remaining = resp.headers.get("x-pshatgpt-remaining");
     const limit = resp.headers.get("x-pshatgpt-limit");
-    if (remaining !== null) {
-      updateFreeTierBadge(parseInt(remaining, 10), limit ? parseInt(limit, 10) : null);
+    const respMode = resp.headers.get("x-pshatgpt-mode");
+    if (remaining !== null && toolRound === 0) {
+      if (respMode === "iyun") {
+        updateIyunBadge(parseInt(remaining, 10), limit ? parseInt(limit, 10) : null);
+      } else {
+        updateFreeTierBadge(parseInt(remaining, 10), limit ? parseInt(limit, 10) : null);
+      }
     }
   }
 
@@ -1619,9 +1699,9 @@ function renderBadge() {
   }
   const rem = getRemaining();
   const total = getLimit();
-  // Clamp display: if remaining > total, just show remaining.
+  const iyunRem = getIyunRemaining();
   const denominator = Math.max(total, rem);
-  badge.innerHTML = `<span class="badge-num">${rem}</span> / ${denominator} free explanations left today`;
+  badge.innerHTML = `<span class="badge-num">${rem}</span> / ${denominator} free explanations · <span class="badge-iyun">${iyunRem}/${IYUN_CAP} iyun</span>`;
   badge.style.display = "block";
   badge.classList.toggle("low", rem <= 2);
   badge.classList.toggle("empty", rem <= 0);
@@ -1629,6 +1709,24 @@ function renderBadge() {
 
 function updateFreeTierBadge(remaining, limit) {
   setRemaining(remaining, limit);
+}
+
+// Separate tracking for Iyun mode (much more expensive, limited to 2/day).
+const IYUN_REMAINING_KEY = "pshatgpt_iyun_remaining";
+const IYUN_LIMIT_KEY = "pshatgpt_iyun_limit";
+const IYUN_CAP = 2;
+
+function getIyunRemaining() {
+  const savedDay = localStorage.getItem(REMAINING_DAY_KEY);
+  if (savedDay !== currentUtcDay()) return IYUN_CAP;
+  const n = localStorage.getItem(IYUN_REMAINING_KEY);
+  return n === null ? IYUN_CAP : parseInt(n, 10);
+}
+function updateIyunBadge(remaining, limit) {
+  localStorage.setItem(IYUN_REMAINING_KEY, String(remaining));
+  if (limit) localStorage.setItem(IYUN_LIMIT_KEY, String(limit));
+  localStorage.setItem(REMAINING_DAY_KEY, currentUtcDay());
+  renderBadge();
 }
 
 // ---------- Settings ----------
@@ -1679,6 +1777,7 @@ function wireNav(btnId) {
 wireNav("#daf-prev"); wireNav("#daf-prev-bottom");
 wireNav("#daf-next"); wireNav("#daf-next-bottom");
 $("#logic-chain-btn").onclick = openLogicChain;
+$("#iyun-btn").onclick = openIyunMode;
 // Keyboard shortcuts for prev/next when the daf is showing
 document.addEventListener("keydown", (e) => {
   if ($("#app-main").classList.contains("app-hidden")) return;

@@ -21,8 +21,8 @@ function corsHeaders(origin, env) {
   return {
     "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "content-type, x-anthropic-key, x-client-id",
-    "Access-Control-Expose-Headers": "x-pshatgpt-remaining, x-pshatgpt-limit",
+    "Access-Control-Allow-Headers": "content-type, x-anthropic-key, x-client-id, x-mode",
+    "Access-Control-Expose-Headers": "x-pshatgpt-remaining, x-pshatgpt-limit, x-pshatgpt-mode",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin",
   };
@@ -32,11 +32,15 @@ function todayKey() {
   return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 }
 
-async function checkAndIncrementRateLimit(env, ip, clientId) {
-  const deviceCap = parseInt(env.DEVICE_DAILY || "10", 10);
+async function checkAndIncrementRateLimit(env, ip, clientId, mode) {
+  const isIyun = mode === "iyun";
+  const deviceCap = isIyun
+    ? parseInt(env.IYUN_DAILY || "2", 10)
+    : parseInt(env.DEVICE_DAILY || "10", 10);
   const ipCap = parseInt(env.FREE_TIER_DAILY || "25", 10);
   const day = todayKey();
-  const devKey = clientId ? `dev:${clientId}:${day}` : null;
+  const devKeyPrefix = isIyun ? "iyun" : "dev";
+  const devKey = clientId ? `${devKeyPrefix}:${clientId}:${day}` : null;
   const ipKey = `ip:${ip}:${day}`;
 
   // Read both counters in parallel.
@@ -48,24 +52,26 @@ async function checkAndIncrementRateLimit(env, ip, clientId) {
   const ipUsed = parseInt(ipCurRaw || "0", 10);
 
   if (devKey && devUsed >= deviceCap) {
-    return { allowed: false, reason: "device", remaining: 0, limit: deviceCap };
+    return { allowed: false, reason: isIyun ? "iyun" : "device", remaining: 0, limit: deviceCap };
   }
   if (ipUsed >= ipCap) {
     return { allowed: false, reason: "ip", remaining: 0, limit: ipCap };
   }
 
-  // Increment both.
+  // Increment both. For iyun we increment IP counter by a weight since it
+  // costs ~10x more in tokens.
   const ttl = 172800;
+  const ipIncrement = isIyun ? 5 : 1;
   await Promise.all([
     devKey ? env.PSHATGPT.put(devKey, String(devUsed + 1), { expirationTtl: ttl }) : Promise.resolve(),
-    env.PSHATGPT.put(ipKey, String(ipUsed + 1), { expirationTtl: ttl }),
+    env.PSHATGPT.put(ipKey, String(ipUsed + ipIncrement), { expirationTtl: ttl }),
   ]);
 
   const devRemaining = devKey ? deviceCap - devUsed - 1 : Infinity;
-  const ipRemaining = ipCap - ipUsed - 1;
+  const ipRemaining = Math.floor((ipCap - ipUsed - ipIncrement) / (isIyun ? 5 : 1));
   const remaining = Math.min(devRemaining, ipRemaining);
   const limit = devKey ? deviceCap : ipCap;
-  return { allowed: true, remaining, limit };
+  return { allowed: true, remaining, limit, mode: isIyun ? "iyun" : "normal" };
 }
 
 export default {
@@ -102,20 +108,23 @@ export default {
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       "unknown";
     const clientId = request.headers.get("x-client-id") || null;
-    // Log each invocation so you can see IPs + device UUIDs in the
-    // Cloudflare dashboard → Workers → Logs tab.
+    const mode = request.headers.get("x-mode") || "normal";
     console.log(JSON.stringify({
       event: "request",
       ip,
       clientId: clientId ? clientId.slice(0, 8) + "..." : null,
       origin: origin || null,
+      mode,
       ua: (request.headers.get("user-agent") || "").slice(0, 80),
     }));
-    const rl = await checkAndIncrementRateLimit(env, ip, clientId);
+    const rl = await checkAndIncrementRateLimit(env, ip, clientId, mode);
     if (!rl.allowed) {
-      const msg = rl.reason === "ip"
-        ? `Your network has hit its daily free-tier limit (${rl.limit}). Add your own Anthropic API key in Settings for unlimited explanations.`
-        : `Daily free-tier limit reached (${rl.limit}). Add your own Anthropic API key in Settings for unlimited explanations.`;
+      const msg =
+        rl.reason === "iyun"
+          ? `You've used your ${rl.limit} free Iyun (research) sessions for today. Add your own Anthropic API key in Settings for unlimited access.`
+          : rl.reason === "ip"
+          ? `Your network has hit its daily free-tier limit. Add your own Anthropic API key in Settings for unlimited explanations.`
+          : `Daily free-tier limit reached (${rl.limit}). Add your own Anthropic API key in Settings for unlimited explanations.`;
       return new Response(
         JSON.stringify({ error: "rate_limit", reason: rl.reason, message: msg, limit: rl.limit }),
         { status: 429, headers: { ...cors, "content-type": "application/json" } }
@@ -138,9 +147,9 @@ export default {
     if (!ALLOWED_MODELS.includes(body.model)) {
       body.model = "claude-sonnet-4-5";
     }
-    // 4096 cap allows deep-Tosafot analysis mode. Normal explanations
-    // still request 2048 and won't use the extra headroom.
-    body.max_tokens = Math.min(body.max_tokens || 2048, 4096);
+    // Normal: 2048. Deep: 4096. Iyun mode: 8192.
+    const maxCap = mode === "iyun" ? 8192 : 4096;
+    body.max_tokens = Math.min(body.max_tokens || 2048, maxCap);
     body.stream = true;
 
     // Log the conversation for owner review (owner's API key, owner's logs).
@@ -176,6 +185,7 @@ export default {
         "cache-control": "no-cache",
         "x-pshatgpt-remaining": String(rl.remaining),
         "x-pshatgpt-limit": String(rl.limit),
+        "x-pshatgpt-mode": rl.mode || "normal",
       },
     });
   },

@@ -1032,6 +1032,18 @@ main { max-width: 1400px; margin: 0 auto; padding: 2rem; }
   border-color: var(--accent) !important;
   background: var(--accent) !important;
 }
+.daf-iyun-btn {
+  background: #3f2a4a !important;
+  color: #f5eedb !important;
+  border-color: #3f2a4a !important;
+  font-weight: 600;
+}
+.daf-iyun-btn:hover {
+  filter: brightness(1.2);
+  color: #f5eedb !important;
+  border-color: #3f2a4a !important;
+  background: #3f2a4a !important;
+}
 .daf-nav-btn {
   background: transparent; color: var(--ink);
   border: 1px solid var(--rule);
@@ -1359,6 +1371,10 @@ main { max-width: 1400px; margin: 0 auto; padding: 2rem; }
   background: #4a2a3a;
   animation: deepPulse 2.2s ease-in-out infinite;
 }
+.modal-kind.modal-kind-iyun {
+  background: #3f2a4a;
+  animation: deepPulse 2.2s ease-in-out infinite;
+}
 @keyframes deepPulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(74, 42, 58, 0.4); }
   50%      { box-shadow: 0 0 0 5px rgba(74, 42, 58, 0); }
@@ -1495,6 +1511,10 @@ body.modal-open {
 .free-tier-badge .badge-num {
   font-weight: 700; color: #7a1f2e; font-size: 0.95rem;
   margin-right: 0.15rem;
+}
+.free-tier-badge .badge-iyun {
+  color: #3f2a4a; font-weight: 600;
+  border-left: 1px solid var(--rule); padding-left: 0.5rem; margin-left: 0.1rem;
 }
 .free-tier-badge.low { border-color: #b06730; }
 .free-tier-badge.low .badge-num { color: #b06730; }
