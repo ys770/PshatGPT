@@ -146,7 +146,7 @@ const MODEL = "claude-sonnet-4-5";
 // Free-tier proxy: Cloudflare Worker that forwards to Anthropic using the
 // owner's API key, rate-limited per IP. Leave empty string to disable.
 // Replace with your worker URL after deploying worker/ (see worker/README.md).
-const PROXY_URL = "https://pshatgpt-proxy.ys770.workers.dev";
+const PROXY_URL = "https://pshatgpt-proxy.ysilberstein13.workers.dev";
 
 const KEY_STORAGE = "pshatgpt_api_key";
 

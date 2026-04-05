@@ -2,17 +2,14 @@ name = "pshatgpt-proxy"
 main = "src/index.js"
 compatibility_date = "2024-10-01"
 
-# Rate limiting storage — run `wrangler kv namespace create RATE_LIMIT` and
-# paste the returned id below.
 [[kv_namespaces]]
-binding = "RATE_LIMIT"
-id = "PUT_YOUR_KV_NAMESPACE_ID_HERE"
+binding = "PSHATGPT"
+id = "d00e1ca559124da0b3c506c41112afc8"
 
 [vars]
 # Per-IP daily free explanations.
 FREE_TIER_DAILY = "10"
 # Comma-separated allowed origins. "*" lets anyone call your worker.
-# For production, restrict to your GH Pages URL + localhost.
 ALLOWED_ORIGINS = "https://ys770.github.io,http://localhost:8000,http://127.0.0.1:8000,http://localhost:8002,http://127.0.0.1:8002"
 
 # Secret (set via `wrangler secret put ANTHROPIC_API_KEY`):
