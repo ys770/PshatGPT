@@ -1,6 +1,6 @@
 # PshatGPT
 
-**Live: [ys770.github.io/pshatgpt](https://ys770.github.io/pshatgpt/)**
+**Live: [ys770.github.io/PshatGPT](https://ys770.github.io/PshatGPT/)**
 
 AI-assisted tzuras hadaf. Click any line of Gemara, Rashi/Rashbam, or Tosafot — get a contextual explanation streamed to you.
 
@@ -8,7 +8,7 @@ Pshat (פשט) = the plain-meaning reading. This tool gives you that first layer
 
 ## Quick start
 
-1. Open [ys770.github.io/pshatgpt](https://ys770.github.io/pshatgpt/)
+1. Open [ys770.github.io/PshatGPT](https://ys770.github.io/PshatGPT/)
 2. Click ⚙ Settings → paste your Anthropic API key ([get one](https://console.anthropic.com/settings/keys)) → Save
 3. Pick a tractate + daf → click anything Hebrew → watch Claude explain it
 
@@ -29,7 +29,7 @@ PshatGPT runs in **two modes**:
 ### Static mode (deployed on GitHub Pages)
 
 ```
-Browser (on ys770.github.io/pshatgpt)
+Browser (on ys770.github.io/PshatGPT)
    │
    ├──▶ Sefaria REST    (text + commentaries, CORS-enabled)
    └──▶ Anthropic API   (streaming, key from localStorage)
@@ -55,8 +55,8 @@ the agents, caching, and logging.
 Requires Python 3.11+.
 
 ```bash
-git clone https://github.com/ys770/pshatgpt.git
-cd pshatgpt
+git clone https://github.com/ys770/PshatGPT.git
+cd PshatGPT
 pip install fastapi uvicorn httpx pydantic anthropic pymupdf
 python -m gemara.web
 ```
