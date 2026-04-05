@@ -1269,7 +1269,9 @@ function openIyunMode() {
     alert("Load a daf first.");
     return;
   }
+  const hasOwnKey = !!getApiKey();
   const remaining = getIyunRemaining();
+
   $("#modal-kind").textContent = "iyun";
   $("#modal-kind").classList.remove("modal-kind-deep");
   $("#modal-kind").classList.add("modal-kind-iyun");
@@ -1277,8 +1279,9 @@ function openIyunMode() {
   $("#modal").classList.remove("modal-hidden");
   lockBodyScroll();
 
-  // Out of iyun credits? Show upgrade message, don't proceed.
-  if (remaining <= 0) {
+  // Only enforce the iyun cap when using the free-tier proxy.
+  // With a personal API key the user pays per call — unlimited iyun.
+  if (!hasOwnKey && remaining <= 0) {
     $("#modal-source").innerHTML = "";
     $("#modal-body").innerHTML = `
       <h3>Out of Iyun sessions</h3>
@@ -1290,13 +1293,15 @@ function openIyunMode() {
     return;
   }
 
-  // Inline confirm step — user clicks "Start Iyun" to actually spend the credit.
-  $("#modal-source").innerHTML = `<div style="font-family: Georgia, serif; font-size: 0.88rem; color: var(--ink); font-style: italic;">You have <strong>${remaining}/2</strong> Iyun sessions on this device (lifetime). This will use 1.</div>`;
+  // Confirmation UI (only needed on free tier; own-key users auto-proceed)
+  const creditLine = hasOwnKey
+    ? `<div style="font-family: Georgia, serif; font-size: 0.88rem; color: var(--ink); font-style: italic;">Using your own API key — unlimited Iyun.</div>`
+    : `<div style="font-family: Georgia, serif; font-size: 0.88rem; color: var(--ink); font-style: italic;">You have <strong>${remaining}/2</strong> Iyun sessions on this device (lifetime). This will use 1.</div>`;
+  $("#modal-source").innerHTML = creditLine;
   $("#modal-body").innerHTML = `
     <h3>Iyun — deep research mode</h3>
     <p>Claude will research the full sugya: identify key lomdus concepts (migo, chazaka, etc.), fetch parallel sugyas + halachic applications, and produce a 1500-3000 word structured analysis. Takes ~30-60 seconds and uses multiple source lookups.</p>
     <p><button id="iyun-start-btn" style="background:#3f2a4a;color:#f5eedb;border:none;padding:.65rem 1.2rem;border-radius:3px;cursor:pointer;font-family:inherit;font-weight:600;font-size:0.95rem;">Start Iyun on ${escapeHtml(currentDaf.base_ref)} →</button></p>
-    <p style="font-size:0.82rem;color:var(--muted);"><em>Your ${remaining-1} remaining Iyun sessions are preserved if you cancel.</em></p>
   `;
   $("#iyun-start-btn").onclick = () => {
     $("#modal-body").innerHTML = '<span class="cursor"></span>';
@@ -1726,7 +1731,8 @@ function renderBadge() {
   const total = getLimit();
   const iyunRem = getIyunRemaining();
   const denominator = Math.max(total, rem);
-  badge.innerHTML = `<span class="badge-num">${rem}</span> / ${denominator} today · <span class="badge-iyun">${iyunRem}/${IYUN_CAP} iyun ever</span>`;
+  const iyunNote = hasKey ? "" : ` · <span class="badge-iyun">${iyunRem}/${IYUN_CAP} iyun ever</span>`;
+  badge.innerHTML = `<span class="badge-num">${rem}</span> / ${denominator} today${iyunNote}`;
   badge.style.display = "block";
   badge.classList.toggle("low", rem <= 2);
   badge.classList.toggle("empty", rem <= 0);
