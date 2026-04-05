@@ -91,4 +91,13 @@ static/
 
 ## License
 
-MIT
+**CC BY-NC-SA 4.0** — [Attribution-NonCommercial-ShareAlike 4.0 International](https://creativecommons.org/licenses/by-nc-sa/4.0/).
+
+- ✅ Use it, study it, share it, modify it
+- ✅ Attribution required
+- ❌ **No commercial use** — non-commercial only
+- 🔄 **ShareAlike** — if you distribute modifications, you must use the same license
+
+Full legal text in [`LICENSE`](./LICENSE).
+
+Note: CC BY-NC-SA is not an OSI-approved "open source" license because it restricts commercial use. It is a *source-available, noncommercial, share-alike* license — which matches the intent: this is a learning tool, not a SaaS product.

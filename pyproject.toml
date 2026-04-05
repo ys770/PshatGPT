@@ -3,6 +3,7 @@ name = "pshatgpt"
 version = "0.1.0"
 description = "AI-assisted tzuras hadaf — click any line or mefaresh, get a contextual explanation"
 requires-python = ">=3.11"
+license = { text = "CC-BY-NC-SA-4.0" }
 dependencies = [
     "anthropic>=0.40.0",
     "pydantic>=2.0",
