@@ -792,7 +792,10 @@ async function startExplain(ref, ctx) {
   // Track remaining free-tier quota if the proxy reported it.
   if (useProxy) {
     const remaining = resp.headers.get("x-pshatgpt-remaining");
-    if (remaining !== null) updateFreeTierBadge(parseInt(remaining, 10));
+    const limit = resp.headers.get("x-pshatgpt-limit");
+    if (remaining !== null) {
+      updateFreeTierBadge(parseInt(remaining, 10), limit ? parseInt(limit, 10) : null);
+    }
   }
 
   const reader = resp.body.getReader();
@@ -839,11 +842,11 @@ function escapeHtml(s) {
 }
 
 // ---------- Free-tier badge ----------
-// Shows remaining daily explanations. Starts at 10 (assumed), updates after
-// each request based on the worker's x-pshatgpt-remaining header.
-// Persists in localStorage + resets at UTC midnight.
-const FREE_TIER_TOTAL = 10;
+// Shows remaining daily explanations. Initial display uses DEVICE_CAP; after
+// each request we use whatever the worker reports. Persists per UTC day.
+const DEVICE_CAP = 10;
 const REMAINING_KEY = "pshatgpt_remaining";
+const LIMIT_KEY = "pshatgpt_limit";
 const REMAINING_DAY_KEY = "pshatgpt_remaining_day";
 
 function currentUtcDay() {
@@ -854,21 +857,27 @@ function getRemaining() {
   const savedDay = localStorage.getItem(REMAINING_DAY_KEY);
   if (savedDay !== currentUtcDay()) {
     localStorage.removeItem(REMAINING_KEY);
+    localStorage.removeItem(LIMIT_KEY);
     localStorage.setItem(REMAINING_DAY_KEY, currentUtcDay());
-    return FREE_TIER_TOTAL;
+    return DEVICE_CAP;
   }
   const n = localStorage.getItem(REMAINING_KEY);
-  return n === null ? FREE_TIER_TOTAL : parseInt(n, 10);
+  return n === null ? DEVICE_CAP : parseInt(n, 10);
 }
 
-function setRemaining(n) {
-  localStorage.setItem(REMAINING_KEY, String(n));
+function getLimit() {
+  const n = localStorage.getItem(LIMIT_KEY);
+  return n === null ? DEVICE_CAP : parseInt(n, 10);
+}
+
+function setRemaining(remaining, limit) {
+  localStorage.setItem(REMAINING_KEY, String(remaining));
+  if (limit) localStorage.setItem(LIMIT_KEY, String(limit));
   localStorage.setItem(REMAINING_DAY_KEY, currentUtcDay());
   renderBadge();
 }
 
 function renderBadge() {
-  // Only show the badge when NOT using a personal key.
   const hasKey = !!getApiKey();
   let badge = $("#free-tier-badge");
   if (hasKey || !PROXY_URL) {
@@ -884,14 +893,17 @@ function renderBadge() {
     document.body.appendChild(badge);
   }
   const rem = getRemaining();
-  badge.innerHTML = `<span class="badge-num">${rem}</span> / ${FREE_TIER_TOTAL} free explanations left today`;
+  const total = getLimit();
+  // Clamp display: if remaining > total, just show remaining.
+  const denominator = Math.max(total, rem);
+  badge.innerHTML = `<span class="badge-num">${rem}</span> / ${denominator} free explanations left today`;
   badge.style.display = "block";
   badge.classList.toggle("low", rem <= 2);
   badge.classList.toggle("empty", rem <= 0);
 }
 
-function updateFreeTierBadge(remaining) {
-  setRemaining(remaining);
+function updateFreeTierBadge(remaining, limit) {
+  setRemaining(remaining, limit);
 }
 
 // ---------- Settings ----------
