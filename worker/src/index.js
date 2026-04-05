@@ -21,7 +21,7 @@ function corsHeaders(origin, env) {
   return {
     "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "content-type, x-anthropic-key",
+    "Access-Control-Allow-Headers": "content-type, x-anthropic-key, x-client-id",
     "Access-Control-Expose-Headers": "x-pshatgpt-remaining, x-pshatgpt-limit",
     "Access-Control-Max-Age": "86400",
     "Vary": "Origin",
@@ -32,13 +32,40 @@ function todayKey() {
   return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 }
 
-async function checkAndIncrementRateLimit(env, ip) {
-  const cap = parseInt(env.FREE_TIER_DAILY || "10", 10);
-  const key = `rl:${ip}:${todayKey()}`;
-  const cur = parseInt((await env.PSHATGPT.get(key)) || "0", 10);
-  if (cur >= cap) return { allowed: false, remaining: 0, limit: cap };
-  await env.PSHATGPT.put(key, String(cur + 1), { expirationTtl: 172800 });
-  return { allowed: true, remaining: cap - cur - 1, limit: cap };
+async function checkAndIncrementRateLimit(env, ip, clientId) {
+  const deviceCap = parseInt(env.DEVICE_DAILY || "10", 10);
+  const ipCap = parseInt(env.FREE_TIER_DAILY || "25", 10);
+  const day = todayKey();
+  const devKey = clientId ? `dev:${clientId}:${day}` : null;
+  const ipKey = `ip:${ip}:${day}`;
+
+  // Read both counters in parallel.
+  const [devCurRaw, ipCurRaw] = await Promise.all([
+    devKey ? env.PSHATGPT.get(devKey) : Promise.resolve(null),
+    env.PSHATGPT.get(ipKey),
+  ]);
+  const devUsed = parseInt(devCurRaw || "0", 10);
+  const ipUsed = parseInt(ipCurRaw || "0", 10);
+
+  if (devKey && devUsed >= deviceCap) {
+    return { allowed: false, reason: "device", remaining: 0, limit: deviceCap };
+  }
+  if (ipUsed >= ipCap) {
+    return { allowed: false, reason: "ip", remaining: 0, limit: ipCap };
+  }
+
+  // Increment both.
+  const ttl = 172800;
+  await Promise.all([
+    devKey ? env.PSHATGPT.put(devKey, String(devUsed + 1), { expirationTtl: ttl }) : Promise.resolve(),
+    env.PSHATGPT.put(ipKey, String(ipUsed + 1), { expirationTtl: ttl }),
+  ]);
+
+  const devRemaining = devKey ? deviceCap - devUsed - 1 : Infinity;
+  const ipRemaining = ipCap - ipUsed - 1;
+  const remaining = Math.min(devRemaining, ipRemaining);
+  const limit = devKey ? deviceCap : ipCap;
+  return { allowed: true, remaining, limit };
 }
 
 export default {
@@ -69,19 +96,28 @@ export default {
       );
     }
 
-    // Rate limit by IP
+    // Rate limit: per-device (via UUID from browser) AND per-IP (safety net)
     const ip =
       request.headers.get("cf-connecting-ip") ||
       request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
       "unknown";
-    const rl = await checkAndIncrementRateLimit(env, ip);
+    const clientId = request.headers.get("x-client-id") || null;
+    // Log each invocation so you can see IPs + device UUIDs in the
+    // Cloudflare dashboard → Workers → Logs tab.
+    console.log(JSON.stringify({
+      event: "request",
+      ip,
+      clientId: clientId ? clientId.slice(0, 8) + "..." : null,
+      origin: origin || null,
+      ua: (request.headers.get("user-agent") || "").slice(0, 80),
+    }));
+    const rl = await checkAndIncrementRateLimit(env, ip, clientId);
     if (!rl.allowed) {
+      const msg = rl.reason === "ip"
+        ? `Your network has hit its daily free-tier limit (${rl.limit}). Add your own Anthropic API key in Settings for unlimited explanations.`
+        : `Daily free-tier limit reached (${rl.limit}). Add your own Anthropic API key in Settings for unlimited explanations.`;
       return new Response(
-        JSON.stringify({
-          error: "rate_limit",
-          message: `Free-tier daily limit reached (${rl.limit}). Add your own Anthropic API key in Settings for unlimited explanations.`,
-          limit: rl.limit,
-        }),
+        JSON.stringify({ error: "rate_limit", reason: rl.reason, message: msg, limit: rl.limit }),
         { status: 429, headers: { ...cors, "content-type": "application/json" } }
       );
     }

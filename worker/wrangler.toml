@@ -22,8 +22,10 @@ binding = "PSHATGPT"
 id = "d00e1ca559124da0b3c506c41112afc8"
 
 [vars]
-# Per-IP daily free explanations.
-FREE_TIER_DAILY = "10"
+# Per-device (UUID) daily cap — each browser gets this many.
+DEVICE_DAILY = "10"
+# Per-IP daily cap — safety net for abuse on one network.
+FREE_TIER_DAILY = "25"
 # Comma-separated allowed origins. "*" lets anyone call your worker.
 ALLOWED_ORIGINS = "https://ys770.github.io"
 

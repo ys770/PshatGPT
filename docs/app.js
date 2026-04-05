@@ -149,6 +149,19 @@ const MODEL = "claude-sonnet-4-5";
 const PROXY_URL = "https://pshatgpt-proxy.ysilberstein13.workers.dev";
 
 const KEY_STORAGE = "pshatgpt_api_key";
+const CLIENT_ID_KEY = "pshatgpt_client_id";
+
+// Stable per-browser UUID so each device gets its own free-tier budget,
+// not shared across a household WiFi. Generated on first visit.
+function getClientId() {
+  let id = localStorage.getItem(CLIENT_ID_KEY);
+  if (!id) {
+    id = (crypto.randomUUID && crypto.randomUUID()) ||
+         (Math.random().toString(36).slice(2) + Date.now().toString(36));
+    localStorage.setItem(CLIENT_ID_KEY, id);
+  }
+  return id;
+}
 
 let INDEX = null;
 let currentAmud = "a";
@@ -730,7 +743,9 @@ async function startExplain(ref, ctx) {
 
   const endpoint = useProxy ? `${PROXY_URL}/v1/messages` : ANTHROPIC;
   const headers = { "content-type": "application/json" };
-  if (!useProxy) {
+  if (useProxy) {
+    headers["x-client-id"] = getClientId();
+  } else {
     headers["x-api-key"] = apiKey;
     headers["anthropic-version"] = "2023-06-01";
     headers["anthropic-dangerous-direct-browser-access"] = "true";
