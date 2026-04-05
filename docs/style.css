@@ -145,38 +145,19 @@ header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
   font-weight: 400;
 }
 
-/* Hero typographic wordmark */
+/* Hero logo */
 .ed-hero-glyph {
   text-align: center;
   position: relative;
   user-select: none;
 }
-.ed-wordmark {
-  font-family: 'Fraunces', Georgia, serif;
-  font-weight: 600;
-  font-size: clamp(4rem, 9vw, 7.5rem);
-  line-height: 0.95;
-  color: var(--ed-ivory);
-  letter-spacing: -0.025em;
-  font-variation-settings: 'SOFT' 30, 'WONK' 0, 'opsz' 144;
+.ed-logo-img {
+  width: 100%;
+  max-width: 460px;
+  height: auto;
+  display: block;
+  margin: 0 auto;
   animation: edGlyphIn 1.0s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both;
-  display: inline-block;
-  position: relative;
-}
-.ed-wordmark-main { color: var(--ed-ivory); }
-.ed-wordmark-gpt {
-  color: var(--ed-brass);
-  font-style: italic;
-  font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 144;
-  margin-left: 0.02em;
-}
-.ed-wordmark::after {
-  content: "";
-  position: absolute;
-  bottom: 0.08em; left: 0; right: 12%;
-  height: 2px;
-  background: var(--ed-brass);
-  opacity: 0.4;
 }
 @keyframes edGlyphIn {
   0%   { opacity: 0; transform: translateY(8px); }
