@@ -1164,6 +1164,12 @@ main { max-width: 1400px; margin: 0 auto; padding: 2rem; }
   font-size: 0.95rem;
 }
 .more-mef-card .dibur + .dibur { border-top: 1px dotted var(--rule); }
+.more-mef-body { }
+.more-mef-loading {
+  padding: 0.7rem 0.95rem; color: var(--muted);
+  font-style: italic; font-size: 0.85rem;
+  border-top: 1px solid var(--rule);
+}
 
 /* Responsive: stack columns on narrow screens */
 @media (max-width: 900px) {

@@ -269,16 +269,31 @@ const COMMENTATOR_PRIORITY = {
 
 // (refineCommentators removed — dynamic discovery handles this now)
 
-// Discover all commentaries Sefaria has for a given daf.
-async function discoverCommentators(baseRef) {
+// Primary meforshim loaded eagerly with the daf; rest on-demand.
+const PRIMARY_COMMENTATORS = new Set(["Rashi", "Rashbam", "Tosafot", "Ran"]);
+
+// Discover all commentaries Sefaria has for a daf, with counts per commentator.
+async function discoverCommentatorsFull(baseRef) {
   const url = `${SEFARIA_RELATED}/${baseRef.replace(/ /g, "_")}`;
   const r = await fetch(url);
   if (!r.ok) return [];
   const data = await r.json();
   const commentaries = (data.links || []).filter(l => l.category === "Commentary");
-  // Collect unique index_titles
-  const indexTitles = [...new Set(commentaries.map(l => l.index_title))];
-  return indexTitles;
+  const byTitle = new Map();
+  for (const l of commentaries) {
+    const t = l.index_title;
+    if (!byTitle.has(t)) byTitle.set(t, { indexTitle: t, count: 0 });
+    byTitle.get(t).count += 1;
+  }
+  const tractate = baseRef.replace(/\s+\d+[ab]$/, "");
+  return [...byTitle.values()].map(c => {
+    const displayName = extractDisplayName(c.indexTitle, tractate);
+    return {
+      ...c,
+      displayName,
+      heName: COMMENTATOR_HEBREW[displayName] || "",
+    };
+  });
 }
 
 // Given "Chiddushei Ramban on Bava Batra" + tractate → "Chiddushei Ramban"
@@ -296,52 +311,69 @@ async function fetchDaf(baseRef, _unused) {
   if (!m) throw new Error(`bad ref: ${baseRef}`);
   const [_, tractate, daf] = m;
 
-  // Parallel: fetch daf segments + discover all available commentaries
-  const [segments, discoveredIndexTitles] = await Promise.all([
+  // Parallel: daf text + discovery (counts only, no commentary text yet)
+  const [segments, discovered] = await Promise.all([
     fetchDafSegments(baseRef),
-    discoverCommentators(baseRef),
+    discoverCommentatorsFull(baseRef),
   ]);
 
-  // Filter out cross-tractate entries (e.g. "Rif Shevuot" on a BB daf)
-  const relevant = discoveredIndexTitles.filter(t => {
-    const display = extractDisplayName(t, tractate);
-    return display !== t || t.includes(tractate); // kept if it normalized or contains the tractate
+  // Filter to commentaries that match this tractate.
+  const relevant = discovered.filter(c => {
+    return c.displayName !== c.indexTitle || c.indexTitle.includes(tractate);
   });
 
-  // Fetch each commentator's text for the whole daf in parallel
-  const results = await Promise.all(
-    relevant.map(indexTitle => {
-      // Sefaria ref: drop " on Tractate" / " Tractate" and rebuild
-      const ref = indexTitle.replace(/ /g, "_");
-      return fetchCommentatorByIndexTitle(ref, tractate, daf);
-    })
-  );
+  // Partition: primary (load now) vs secondary (lazy).
+  const primary = relevant.filter(c => PRIMARY_COMMENTATORS.has(c.displayName));
+  const secondary = relevant
+    .filter(c => !PRIMARY_COMMENTATORS.has(c.displayName))
+    .sort((a, b) => (COMMENTATOR_PRIORITY[b.displayName] ?? 0) - (COMMENTATOR_PRIORITY[a.displayName] ?? 0));
 
-  // Distribute to segments with display-name metadata + priority
-  for (let i = 0; i < relevant.length; i++) {
-    const indexTitle = relevant[i];
-    const displayName = extractDisplayName(indexTitle, tractate);
-    const heName = COMMENTATOR_HEBREW[displayName] || "";
-    const priority = COMMENTATOR_PRIORITY[displayName] ?? 0;
-    const nested = results[i];
-    for (let segIdxZero = 0; segIdxZero < nested.length; segIdxZero++) {
-      const segIdx = segIdxZero + 1;
-      const seg = segments[segIdxZero];
-      if (!seg) continue;
-      for (let subIdxZero = 0; subIdxZero < nested[segIdxZero].length; subIdxZero++) {
-        seg.commentaries.push({
-          commentator: displayName,
-          index_title: indexTitle,
-          hebrew_name: heName,
-          priority,
-          ref: `${indexTitle} ${daf}:${segIdx}:${subIdxZero+1}`,
-          sub_index: subIdxZero + 1,
-          hebrew: clean(nested[segIdxZero][subIdxZero]),
-        });
-      }
+  // Eager-fetch primary commentators only.
+  const primaryResults = await Promise.all(
+    primary.map(c => fetchCommentatorByIndexTitle(c.indexTitle.replace(/ /g, "_"), tractate, daf))
+  );
+  for (let i = 0; i < primary.length; i++) {
+    distributeCommentary(segments, primary[i], primaryResults[i], daf);
+  }
+
+  return {
+    base_ref: baseRef,
+    segments,
+    secondaryAvailable: secondary, // metadata only (name, count, heName, indexTitle)
+    secondaryLoaded: new Set(),    // displayNames already lazy-loaded
+  };
+}
+
+function distributeCommentary(segments, meta, nested, daf) {
+  const priority = COMMENTATOR_PRIORITY[meta.displayName] ?? 0;
+  for (let segIdxZero = 0; segIdxZero < nested.length; segIdxZero++) {
+    const segIdx = segIdxZero + 1;
+    const seg = segments[segIdxZero];
+    if (!seg) continue;
+    for (let subIdxZero = 0; subIdxZero < nested[segIdxZero].length; subIdxZero++) {
+      seg.commentaries.push({
+        commentator: meta.displayName,
+        index_title: meta.indexTitle,
+        hebrew_name: meta.heName,
+        priority,
+        ref: `${meta.indexTitle} ${daf}:${segIdx}:${subIdxZero+1}`,
+        sub_index: subIdxZero + 1,
+        hebrew: clean(nested[segIdxZero][subIdxZero]),
+      });
     }
   }
-  return { base_ref: baseRef, segments };
+}
+
+// On-demand loader for a secondary mefaresh; mutates currentDaf.segments.
+async function loadSecondaryMefaresh(meta) {
+  if (!currentDaf || currentDaf.secondaryLoaded.has(meta.displayName)) return;
+  const m = currentDaf.base_ref.match(/^(.+)\s+(\d+[ab])$/);
+  if (!m) return;
+  const [_, tractate, daf] = m;
+  const slug = meta.indexTitle.replace(/ /g, "_");
+  const nested = await fetchCommentatorByIndexTitle(slug, tractate, daf);
+  distributeCommentary(currentDaf.segments, meta, nested, daf);
+  currentDaf.secondaryLoaded.add(meta.displayName);
 }
 
 // Fetch by any index_title directly.
@@ -592,58 +624,74 @@ function renderDafDesktop(daf) {
   page.appendChild(renderGemaraBody(daf.segments));
   wrapper.appendChild(page);
 
-  // Secondary meforshim: everything that's NOT Rashi/Rashbam/Ran/Tosafot.
-  const primaryNames = new Set([rashiSideName, "Tosafot"].filter(Boolean));
-  const secondary = [...byName.entries()]
-    .filter(([name]) => !primaryNames.has(name))
-    .sort((a, b) => {
-      const pa = COMMENTATOR_PRIORITY[a[0]] ?? 0;
-      const pb = COMMENTATOR_PRIORITY[b[0]] ?? 0;
-      return pb - pa;
-    });
-
-  if (secondary.length) {
-    wrapper.appendChild(renderMoreMeforshim(secondary));
+  // Secondary meforshim: lazy-loaded, shown as placeholder cards.
+  if (daf.secondaryAvailable && daf.secondaryAvailable.length) {
+    wrapper.appendChild(renderMoreMeforshim(daf.secondaryAvailable));
   }
 
   return wrapper;
 }
 
-function renderMoreMeforshim(pairs) {
+function renderMoreMeforshim(secondaryMeta) {
   const section = document.createElement("section");
   section.className = "more-meforshim";
   const title = document.createElement("div");
   title.className = "more-mef-title";
-  title.textContent = "More meforshim on this daf";
+  title.textContent = "More meforshim on this daf — click to load";
   section.appendChild(title);
-  for (const [name, items] of pairs) {
+
+  for (const meta of secondaryMeta) {
     const details = document.createElement("details");
     details.className = "more-mef-card";
     const summary = document.createElement("summary");
-    const heName = COMMENTATOR_HEBREW[name] || "";
     summary.innerHTML = `
-      <span class="more-mef-name">${escapeHtml(name)}</span>
-      <span class="more-mef-he">${escapeHtml(heName)}</span>
-      <span class="more-mef-count">${items.length}</span>
+      <span class="more-mef-name">${escapeHtml(meta.displayName)}</span>
+      <span class="more-mef-he">${escapeHtml(meta.heName)}</span>
+      <span class="more-mef-count">${meta.count}</span>
     `;
     details.appendChild(summary);
-    for (const c of items) {
-      const d = document.createElement("div");
-      d.className = "dibur hebrew-text clickable";
-      d.appendChild(withHeadword(c.hebrew));
-      d.onclick = () => openExplain(c.ref, c.commentator, c.hebrew, null, {
-        kind: "commentary",
-        commentator: c.commentator,
-        text: c.hebrew,
-      });
-      details.appendChild(d);
-    }
+
+    // Lazy-load on first open.
+    const body = document.createElement("div");
+    body.className = "more-mef-body";
+    body.innerHTML = '<div class="more-mef-loading">loading…</div>';
+    details.appendChild(body);
+
+    details.addEventListener("toggle", async () => {
+      if (!details.open || details.dataset.loaded) return;
+      details.dataset.loaded = "pending";
+      await loadSecondaryMefaresh(meta);
+      // Pull the now-loaded diburim for this commentator out of segments.
+      const items = currentDaf.segments
+        .flatMap(s => s.commentaries.filter(c => c.commentator === meta.displayName))
+        .sort((a, b) => {
+          // Re-sort by segment then sub-index
+          const ai = parseInt((a.ref.match(/:(\d+):/) || [])[1] || "0", 10);
+          const bi = parseInt((b.ref.match(/:(\d+):/) || [])[1] || "0", 10);
+          return ai - bi || a.sub_index - b.sub_index;
+        });
+      body.innerHTML = "";
+      for (const c of items) {
+        const d = document.createElement("div");
+        d.className = "dibur hebrew-text clickable";
+        d.appendChild(withHeadword(c.hebrew));
+        d.onclick = () => openExplain(c.ref, c.commentator, c.hebrew, null, {
+          kind: "commentary",
+          commentator: c.commentator,
+          text: c.hebrew,
+        });
+        body.appendChild(d);
+      }
+      details.dataset.loaded = "done";
+    });
+
     section.appendChild(details);
   }
   return section;
 }
 
 function renderDafMobile(daf) {
+  const wrapper = document.createElement("div");
   const page = document.createElement("div");
   page.className = "daf-page daf-mobile";
 
@@ -688,7 +736,11 @@ function renderDafMobile(daf) {
 
     page.appendChild(article);
   }
-  return page;
+  wrapper.appendChild(page);
+  if (daf.secondaryAvailable && daf.secondaryAvailable.length) {
+    wrapper.appendChild(renderMoreMeforshim(daf.secondaryAvailable));
+  }
+  return wrapper;
 }
 
 function renderMobileCommBlock(colKind, name, items) {
