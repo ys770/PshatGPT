@@ -69,12 +69,29 @@ const COMMENTATOR_HEBREW = {
   "Ran on Nedarim": "ר״ן",
 };
 
+// Refine commentators by daf: e.g. on Bava Batra, Rashi covers 2a-28b
+// and Rashbam covers 29a onward — they don't overlap, so only one exists
+// per daf. Filtering here prevents 404s from hitting the Network tab.
+function refineCommentators(baseRef, commentators) {
+  const mm = baseRef.match(/^(.+?)\s+(\d+)([ab])$/);
+  if (!mm) return commentators;
+  const [_, tractate, dafStr] = mm;
+  const daf = parseInt(dafStr, 10);
+  if (tractate === "Bava Batra") {
+    // Rashi ends at 28b; Rashbam begins at 29a.
+    if (daf >= 29) return commentators.filter(c => c !== "Rashi");
+    return commentators.filter(c => c !== "Rashbam");
+  }
+  return commentators;
+}
+
 async function fetchDaf(baseRef, commentators) {
   // Split "Bava Batra 33b" → tractate + daf part.
   const m = baseRef.match(/^(.+)\s+(\d+[ab])$/);
   if (!m) throw new Error(`bad ref: ${baseRef}`);
   const [_, tractate, daf] = m;
 
+  commentators = refineCommentators(baseRef, commentators);
   const segments = await fetchDafSegments(baseRef);
 
   // Fetch each commentator's whole daf in parallel.
