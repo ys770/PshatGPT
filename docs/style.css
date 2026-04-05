@@ -167,12 +167,15 @@ main { max-width: 1400px; margin: 0 auto; padding: 2rem; }
 .modal-backdrop {
   position: absolute; inset: 0;
   background: rgba(20, 15, 10, 0.55);
+  z-index: 0;
 }
 .modal-box {
   position: relative;
+  z-index: 1;
   background: var(--card);
   border-radius: 6px;
   width: min(720px, 90vw);
+  min-height: 140px;
   max-height: 85vh;
   display: flex; flex-direction: column;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
