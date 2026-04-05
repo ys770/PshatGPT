@@ -29,19 +29,19 @@ header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
 .header-minimal .header-picker { display: none; }
 
 /* ═════════════════════════════════════════════════════════
-   EDITORIAL LANDING  —  dark manuscript · brass · Hebrew-first
+   EDITORIAL LANDING  —  cream parchment · burgundy · typographic
    ═════════════════════════════════════════════════════════ */
 .ed-landing {
-  --ed-bg: #14100a;
-  --ed-surface: #1c1610;
-  --ed-ivory: #f3ead8;
-  --ed-cream: #e8dcc6;
-  --ed-brass: #c68b3a;
-  --ed-brass-dim: #a26f2a;
-  --ed-warm-muted: #ad9a84;
+  --ed-bg: #f4ecd6;
+  --ed-surface: #ebe1c7;
+  --ed-ivory: #1a1410;       /* primary ink */
+  --ed-cream: #2a221b;       /* body text */
+  --ed-brass: #7a1f2e;       /* deep burgundy accent */
+  --ed-brass-dim: #5e1824;
+  --ed-warm-muted: #6b5a47;  /* tertiary / meta */
   --ed-warm-muted-soft: #8a7864;
-  --ed-rule: rgba(243, 234, 216, 0.14);
-  --ed-rule-strong: rgba(243, 234, 216, 0.32);
+  --ed-rule: rgba(26, 20, 16, 0.14);
+  --ed-rule-strong: rgba(26, 20, 16, 0.32);
 
   position: relative;
   min-height: 100vh;
@@ -53,21 +53,12 @@ header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
   padding: 0;
 }
 
-/* Paper grain overlay — SVG noise, not an image */
+/* Subtle paper grain — very faint */
 .ed-grain {
   position: fixed; inset: 0; pointer-events: none; z-index: 2;
-  opacity: 0.04;
-  mix-blend-mode: overlay;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.96  0 0 0 0 0.91  0 0 0 0 0.85  0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-}
-
-/* Vignette + subtle brass glow */
-.ed-landing::before {
-  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
-  background:
-    radial-gradient(ellipse 900px 500px at 85% -5%, rgba(198, 139, 58, 0.10), transparent 60%),
-    radial-gradient(ellipse 700px 400px at 10% 100%, rgba(198, 139, 58, 0.06), transparent 60%),
-    radial-gradient(ellipse 1200px 600px at 50% 50%, transparent 40%, rgba(0,0,0,0.4) 100%);
+  opacity: 0.035;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.2  0 0 0 0 0.15  0 0 0 0 0.1  0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
 }
 
 .ed-container {
@@ -101,7 +92,7 @@ header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
 }
 .ed-eyebrow em {
   font-style: italic;
-  color: var(--ed-cream);
+  color: var(--ed-ivory);
   font-variation-settings: 'SOFT' 100;
 }
 .ed-eyebrow-mark {
@@ -123,8 +114,8 @@ header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
   animation: chipShimmer 4s ease-in-out infinite;
 }
 @keyframes chipShimmer {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(198, 139, 58, 0.4); }
-  50%      { box-shadow: 0 0 0 4px rgba(198, 139, 58, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(122, 31, 46, 0.35); }
+  50%      { box-shadow: 0 0 0 4px rgba(122, 31, 46, 0); }
 }
 
 .ed-lede {
@@ -151,44 +142,45 @@ header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
   color: var(--ed-cream);
   margin: 0;
   max-width: 36rem;
-  font-weight: 300;
-  opacity: 0.85;
+  font-weight: 400;
 }
 
-/* Logo as hero glyph */
+/* Hero typographic wordmark */
 .ed-hero-glyph {
   text-align: center;
   position: relative;
   user-select: none;
-  padding: 1rem;
 }
-.ed-hero-glyph::before {
+.ed-wordmark {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  font-size: clamp(4rem, 9vw, 7.5rem);
+  line-height: 0.95;
+  color: var(--ed-ivory);
+  letter-spacing: -0.025em;
+  font-variation-settings: 'SOFT' 30, 'WONK' 0, 'opsz' 144;
+  animation: edGlyphIn 1.0s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both;
+  display: inline-block;
+  position: relative;
+}
+.ed-wordmark-main { color: var(--ed-ivory); }
+.ed-wordmark-gpt {
+  color: var(--ed-brass);
+  font-style: italic;
+  font-variation-settings: 'SOFT' 100, 'WONK' 1, 'opsz' 144;
+  margin-left: 0.02em;
+}
+.ed-wordmark::after {
   content: "";
   position: absolute;
-  top: 50%; left: 50%;
-  width: 70%; height: 70%;
-  transform: translate(-50%, -50%);
-  background: radial-gradient(circle, rgba(198, 139, 58, 0.18), transparent 60%);
-  filter: blur(20px);
-  pointer-events: none;
-  z-index: 0;
-}
-.ed-logo-glyph {
-  width: 100%;
-  max-width: 420px;
-  height: auto;
-  display: block;
-  margin: 0 auto;
-  position: relative;
-  z-index: 1;
-  /* Invert the dark-ink logo for dark theme, warm it slightly */
-  filter: invert(0.94) sepia(0.12) hue-rotate(-8deg) saturate(0.85)
-          drop-shadow(0 2px 0 rgba(0,0,0,0.4));
-  animation: edGlyphIn 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both;
+  bottom: 0.08em; left: 0; right: 12%;
+  height: 2px;
+  background: var(--ed-brass);
+  opacity: 0.4;
 }
 @keyframes edGlyphIn {
-  0%   { opacity: 0; transform: scale(0.94); }
-  100% { opacity: 1; transform: scale(1); }
+  0%   { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
 
 /* ─── INLINE CHOOSER ─────────────────── */
@@ -263,7 +255,7 @@ header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
 .ed-amud-btn.active {
   background: var(--ed-brass);
   border-color: var(--ed-brass);
-  color: var(--ed-bg);
+  color: #f5eedb;
 }
 
 .ed-chooser-actions {
@@ -295,7 +287,7 @@ header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
 }
 .ed-cta > * { position: relative; z-index: 1; }
 .ed-cta:hover::before { transform: translateX(0); }
-.ed-cta:hover { color: var(--ed-bg); }
+.ed-cta:hover { color: #f5eedb; }
 .ed-cta-arrow { transition: transform 0.25s; }
 .ed-cta:hover .ed-cta-arrow { transform: translateX(4px); }
 
@@ -384,7 +376,7 @@ header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
   font-family: 'Frank Ruhl Libre', 'David', serif;
   font-weight: 700;
   font-size: 1.6rem;
-  color: var(--ed-cream);
+  color: var(--ed-ivory);
   direction: rtl; text-align: right;
   margin-bottom: 0.15rem;
   transition: transform 0.25s cubic-bezier(0.2, 0.7, 0.2, 1);
@@ -402,10 +394,9 @@ header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
 .ed-feature-note {
   font-family: 'Fraunces', serif;
   font-size: 0.88rem;
-  font-weight: 300;
+  font-weight: 400;
   line-height: 1.55;
   color: var(--ed-cream);
-  opacity: 0.75;
   margin: 0;
   max-width: 36rem;
 }
@@ -439,7 +430,7 @@ header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
   font-size: 1rem;
   font-weight: 500;
   font-style: italic;
-  color: var(--ed-cream);
+  color: var(--ed-ivory);
   font-variation-settings: 'SOFT' 80;
 }
 .ed-roadmap-item dt::before {
@@ -451,10 +442,9 @@ header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
 .ed-roadmap-item dd {
   font-family: 'Fraunces', serif;
   font-size: 0.88rem;
-  font-weight: 300;
+  font-weight: 400;
   line-height: 1.55;
   color: var(--ed-cream);
-  opacity: 0.75;
   margin: 0;
 }
 
@@ -498,28 +488,25 @@ header h1 { margin: 0; font-size: 1.4rem; color: var(--accent); }
 .ed-landing + #app-main.app-hidden + #app-header.header-minimal,
 body:has(#landing:not(.app-hidden)) #app-header { display: none; }
 
-/* Dark header styling when on the editorial landing */
+/* Transparent header over the editorial landing */
 body:has(#landing:not(.app-hidden)) #app-header {
   background: transparent;
-  border-bottom: 1px solid rgba(243, 234, 216, 0.08);
+  border-bottom: 1px solid rgba(26, 20, 16, 0.08);
   padding: 1.1rem 3rem;
   position: absolute;
   top: 0; left: 0; right: 0;
   z-index: 3;
 }
-body:has(#landing:not(.app-hidden)) #app-header .logo {
-  height: 36px;
-  filter: invert(0.92) hue-rotate(5deg) sepia(0.15);
-}
+body:has(#landing:not(.app-hidden)) #app-header .logo { height: 34px; }
 body:has(#landing:not(.app-hidden)) #app-header .icon-btn {
-  color: #e8dcc6;
-  border-color: rgba(243, 234, 216, 0.22);
+  color: #1a1410;
+  border-color: rgba(26, 20, 16, 0.22);
   background: transparent;
 }
 body:has(#landing:not(.app-hidden)) #app-header .icon-btn:hover {
-  background: rgba(198, 139, 58, 0.12);
-  border-color: #c68b3a;
-  color: #f3ead8;
+  background: rgba(122, 31, 46, 0.08);
+  border-color: #7a1f2e;
+  color: #7a1f2e;
 }
 @media (max-width: 900px) {
   body:has(#landing:not(.app-hidden)) #app-header { padding: 0.9rem 1.75rem; }

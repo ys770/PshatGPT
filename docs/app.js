@@ -574,23 +574,25 @@ $$("[data-landing-amud]").forEach(b =>
   b.addEventListener("click", () => setLandingAmud(b.dataset.landingAmud)));
 $("#landing-settings-link").addEventListener("click", e => { e.preventDefault(); openSettings(); });
 
-// Featured sugya items — jump straight into a preset ref
-$$(".ed-feature, .featured-card").forEach(el => {
-  el.addEventListener("click", () => {
-    const ref = el.dataset.ref;
-    if (!ref) return;
-    // Find tractate in index to get its meforshim list.
-    const m = ref.match(/^(.+?)\s+(\d+)([ab])$/);
-    if (!m) return;
-    const tractate = m[1];
-    let meforshim = ["Rashi", "Tosafot"];
-    for (const s of INDEX.sederim) {
-      const t = s.tractates.find(t => t.name === tractate);
-      if (t) { meforshim = t.meforshim; break; }
-    }
-    exitLanding();
-    loadDaf(ref, meforshim);
-  });
+// Featured sugya items — event delegation on the landing section so
+// it survives any DOM re-render of the featured list.
+document.addEventListener("click", (e) => {
+  const el = e.target.closest("[data-ref]");
+  if (!el) return;
+  // Only handle landing-level feature rows, not gemara segments.
+  if (!el.classList.contains("ed-feature") && !el.classList.contains("featured-card")) return;
+  const ref = el.dataset.ref;
+  if (!ref || !INDEX) return;
+  const m = ref.match(/^(.+?)\s+(\d+)([ab])$/);
+  if (!m) return;
+  const tractate = m[1];
+  let meforshim = ["Rashi", "Tosafot"];
+  for (const s of INDEX.sederim) {
+    const t = s.tractates.find(t => t.name === tractate);
+    if (t) { meforshim = t.meforshim; break; }
+  }
+  exitLanding();
+  loadDaf(ref, meforshim);
 });
 
 // Random daf — pick a random tractate, random daf, random amud
