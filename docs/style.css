@@ -1018,7 +1018,20 @@ main { max-width: 1400px; margin: 0 auto; padding: 2rem; }
   gap: 1rem; flex-wrap: wrap;
 }
 #daf-header h2 { margin: 0; font-size: 1.6rem; color: var(--accent); }
+#daf-actions { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
 #daf-nav { display: flex; gap: 0.5rem; }
+.daf-logic-btn {
+  background: var(--accent) !important;
+  color: var(--card) !important;
+  border-color: var(--accent) !important;
+  font-weight: 600;
+}
+.daf-logic-btn:hover {
+  filter: brightness(1.1);
+  color: var(--card) !important;
+  border-color: var(--accent) !important;
+  background: var(--accent) !important;
+}
 .daf-nav-btn {
   background: transparent; color: var(--ink);
   border: 1px solid var(--rule);
@@ -1297,6 +1310,8 @@ main { max-width: 1400px; margin: 0 auto; padding: 2rem; }
   main { padding: 1rem; }
   #daf-header { flex-direction: column; align-items: flex-start; gap: 0.6rem; }
   #daf-header h2 { font-size: 1.25rem; }
+  #daf-actions { width: 100%; flex-direction: column; gap: 0.5rem; align-items: stretch; }
+  .daf-logic-btn { width: 100%; }
   #daf-nav { width: 100%; justify-content: space-between; }
   #daf-nav .daf-nav-btn, #daf-nav-bottom .daf-nav-btn { flex: 1; padding: 0.5rem; }
   .gemara-body { font-size: 1.08rem; }

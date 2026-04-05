@@ -909,6 +909,50 @@ function closeModal() {
 const DEEP_THRESHOLD = 400;
 const DEEP_MAX_TOKENS = 4096;
 
+const LOGIC_CHAIN_PROMPT = `You are mapping the **logic chain** of a sugya for a learner — showing every named voice, what they hold, and how they relate to each other.
+
+Use the gemara + meforshim you've been given to trace the dialectic. Produce a structured markdown document:
+
+## Setup
+Two sentences max: what's the sugya asking, what's at stake. Don't re-translate the whole daf.
+
+## Voices
+For each named speaker (amora, tanna, or stam), a labeled card:
+
+### [Speaker name] — [one-line position]
+**Claim**: what they hold, in natural English
+**Reasoning** (if explicit in the text): the logic they rely on
+**Based on segment(s)**: [ref]
+
+## Dialectic (the give-and-take)
+Show how the voices connect, in the order they appear. Use these relation labels:
+- **→ challenges**: Voice B disputes A
+- **→ qualifies**: Voice B narrows/refines A
+- **→ resolves**: Voice B answers a challenge against A
+- **→ extends**: Voice B generalizes A
+- **→ parallels**: Voice B cites a similar case
+- **→ rejects**: Voice B discards A outright
+
+Format each step as:
+> **Stam** → challenges **Rav Zevid** — "if we believe him for produce, why not land?"
+> **Stam** → resolves — "land requires a deed, produce doesn't"
+
+## Unresolved / Open
+If the sugya leaves something open (machlokes that's never settled, a kushya without a tirutz), note it here.
+
+## Bottom line
+One or two sentences: what does the sugya establish? What chiddush emerges?
+
+---
+
+**Rules:**
+- Only include voices actually named in the provided gemara + meforshim
+- If a voice isn't clearly in your context, don't invent them
+- Keep positions concise — this is a MAP, not a re-explanation
+- Don't include the meforshim (Rashi/Rashbam/Tosafot) as voices unless THEY made the machlokes themselves; they're tools for understanding the amoraim
+- The dialectic order should match the gemara's flow (segment by segment)
+- Anti-hallucination rules from before still apply`;
+
 const DEEP_TOSAFOT_PROMPT = `You are a talmid chacham doing a DEEP, STRUCTURED analysis of a long mefaresh for a serious learner. This is iyun-level — do NOT summarize. Break the Hebrew text into labeled parts, then walk through each.
 
 ## PHASE 1 — STRUCTURAL BREAKDOWN (start here)
@@ -1068,6 +1112,48 @@ argument)
 
 Bad answer: "Rashbam explains A. Tosafot says B. Ramban says C. Meiri
 says D." (listing, not teaching)`;
+
+function buildLogicChainMessage(daf) {
+  const lines = [];
+  lines.push(`# Daf: ${daf.base_ref}`);
+  lines.push(`\n## Gemara text (all segments):`);
+  for (const s of daf.segments) {
+    lines.push(`[${s.index}] ${s.hebrew}`);
+    if (s.english) lines.push(`   (${s.english})`);
+  }
+  // Include loaded commentaries for extra grounding.
+  const allComms = daf.segments.flatMap(s => s.commentaries.map(c => ({ ...c, segIndex: s.index })));
+  const byName = groupBy(allComms, c => c.commentator);
+  for (const [name, items] of byName) {
+    lines.push(`\n## ${name} on ${daf.base_ref}:`);
+    for (const c of items.slice(0, 20)) {
+      lines.push(`[seg ${c.segIndex}] ${c.hebrew.slice(0, 400)}`);
+    }
+  }
+  lines.push(`\n---\n`);
+  lines.push(`Map the logic chain of this daf: all named voices, their positions, and how they connect.`);
+  return lines.join("\n");
+}
+
+function openLogicChain() {
+  if (!currentDaf) return;
+  $("#modal-kind").textContent = "logic chain";
+  $("#modal-kind").classList.remove("modal-kind-deep");
+  $("#modal-ref").textContent = currentDaf.base_ref;
+  const src = $("#modal-source");
+  src.innerHTML = `<div style="font-family: Georgia, serif; font-size: 0.85rem; color: var(--muted);">Mapping all voices in the dialectic…</div>`;
+  $("#modal-body").innerHTML = '<span class="cursor"></span>';
+  conversation = [];
+  currentSystem = LOGIC_CHAIN_PROMPT;
+  currentMaxTokens = DEEP_MAX_TOKENS;
+  currentUserPrefix = buildLogicChainMessage(currentDaf);
+  $("#followup-input").value = "";
+  $("#modal").classList.remove("modal-hidden");
+  lockBodyScroll();
+  // Seed conversation with the first user turn and stream.
+  conversation = [{ role: "user", content: currentUserPrefix }];
+  streamTurn();
+}
 
 function buildUserMessage(ref, ctx, currentDaf) {
   const lines = [];
@@ -1420,6 +1506,7 @@ function wireNav(btnId) {
 }
 wireNav("#daf-prev"); wireNav("#daf-prev-bottom");
 wireNav("#daf-next"); wireNav("#daf-next-bottom");
+$("#logic-chain-btn").onclick = openLogicChain;
 // Keyboard shortcuts for prev/next when the daf is showing
 document.addEventListener("keydown", (e) => {
   if ($("#app-main").classList.contains("app-hidden")) return;
