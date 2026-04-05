@@ -1158,7 +1158,7 @@ main { max-width: 1400px; margin: 0 auto; padding: 2rem; }
   .daf-page.hide-gemara .gemara-body { display: none; }
   .daf-page.hide-rashi .rashi-margin { display: none; }
   .daf-page.hide-tosafot .tosafot-margin { display: none; }
-}
+
   #daf { padding: 0.75rem; }
   .daf-page { display: flex; flex-direction: column; gap: 1rem; }
   .daf-page::after { display: none; }  /* no floats to clear */
