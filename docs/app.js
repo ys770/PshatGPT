@@ -223,63 +223,145 @@ async function fetchCommentator(commentator, tractate, daf) {
 }
 
 const COMMENTATOR_HEBREW = {
-  "Rashi": "רש״י", "Rashbam": "רשב״ם", "Tosafot": "תוספות", "Ran": "ר״ן",
+  "Rashi": "רש״י",
+  "Rashbam": "רשב״ם",
+  "Tosafot": "תוספות",
+  "Ran": "ר״ן",
   "Ran on Nedarim": "ר״ן",
+  "Chiddushei Ramban": "חידושי רמב״ן",
+  "Ramban": "רמב״ן",
+  "Rashba": "רשב״א",
+  "Ritva": "ריטב״א",
+  "Meiri": "מאירי",
+  "Rif": "רי״ף",
+  "Rosh": "רא״ש",
+  "Yad Ramah": "יד רמ״ה",
+  "Shita Mekubetzet": "שיטה מקובצת",
+  "Tosafot Rid": "תוספות רי״ד",
+  "Nimukei Yosef": "נמוקי יוסף",
+  "Rabbeinu Chananel": "רבנו חננאל",
+  "Rabbeinu Gershom": "רבנו גרשום",
+  "Mordechai": "מרדכי",
+  "Steinsaltz": "שטיינזלץ",
+  "Piskei Tosafot": "פסקי תוספות",
+  "Chidushei Halachot": "מהרש״א",
+  "Chokhmat Shlomo": "מהרש״ל",
+  "Pnei Yehoshua": "פני יהושע",
+  "Chidushei Chatam Sofer": "חתם סופר",
+  "Rashash": "רש״ש",
+  "Chiddushei HaRim": "חידושי הרי״ם",
+  "Haggahot Ya'avetz": "הגהות יעב״ץ",
 };
 
-// Refine commentators by daf: e.g. on Bava Batra, Rashi covers 2a-28b
-// and Rashbam covers 29a onward — they don't overlap, so only one exists
-// per daf. Filtering here prevents 404s from hitting the Network tab.
-function refineCommentators(baseRef, commentators) {
-  const mm = baseRef.match(/^(.+?)\s+(\d+)([ab])$/);
-  if (!mm) return commentators;
-  const [_, tractate, dafStr] = mm;
-  const daf = parseInt(dafStr, 10);
-  if (tractate === "Bava Batra") {
-    // Rashi ends at 28b; Rashbam begins at 29a.
-    if (daf >= 29) return commentators.filter(c => c !== "Rashi");
-    return commentators.filter(c => c !== "Rashbam");
-  }
-  return commentators;
+// Priority order for displaying meforshim. Higher = shows first.
+const COMMENTATOR_PRIORITY = {
+  "Rashi": 100, "Rashbam": 100,
+  "Tosafot": 95,
+  "Ramban": 90, "Chiddushei Ramban": 90, "Rashba": 89, "Ritva": 88, "Ran": 87,
+  "Meiri": 85, "Yad Ramah": 84, "Shita Mekubetzet": 83, "Nimukei Yosef": 82,
+  "Tosafot Rid": 81, "Rabbeinu Chananel": 80, "Rabbeinu Gershom": 79,
+  "Rif": 70, "Rosh": 69, "Mordechai": 68,
+  "Piskei Tosafot": 60, "Steinsaltz": 55,
+  "Chidushei Halachot": 50, "Chokhmat Shlomo": 49, "Pnei Yehoshua": 48,
+  "Chidushei Chatam Sofer": 47, "Rashash": 46, "Chiddushei HaRim": 45,
+  "Haggahot Ya'avetz": 40,
+};
+
+// (refineCommentators removed — dynamic discovery handles this now)
+
+// Discover all commentaries Sefaria has for a given daf.
+async function discoverCommentators(baseRef) {
+  const url = `${SEFARIA_RELATED}/${baseRef.replace(/ /g, "_")}`;
+  const r = await fetch(url);
+  if (!r.ok) return [];
+  const data = await r.json();
+  const commentaries = (data.links || []).filter(l => l.category === "Commentary");
+  // Collect unique index_titles
+  const indexTitles = [...new Set(commentaries.map(l => l.index_title))];
+  return indexTitles;
 }
 
-async function fetchDaf(baseRef, commentators) {
-  // Split "Bava Batra 33b" → tractate + daf part.
+// Given "Chiddushei Ramban on Bava Batra" + tractate → "Chiddushei Ramban"
+function extractDisplayName(indexTitle, tractate) {
+  let name = indexTitle;
+  const patterns = [` on ${tractate}`, ` ${tractate}`];
+  for (const p of patterns) {
+    if (name.endsWith(p)) { name = name.slice(0, -p.length); break; }
+  }
+  return name.trim();
+}
+
+async function fetchDaf(baseRef, _unused) {
   const m = baseRef.match(/^(.+)\s+(\d+[ab])$/);
   if (!m) throw new Error(`bad ref: ${baseRef}`);
   const [_, tractate, daf] = m;
 
-  commentators = refineCommentators(baseRef, commentators);
-  const segments = await fetchDafSegments(baseRef);
+  // Parallel: fetch daf segments + discover all available commentaries
+  const [segments, discoveredIndexTitles] = await Promise.all([
+    fetchDafSegments(baseRef),
+    discoverCommentators(baseRef),
+  ]);
 
-  // Fetch each commentator's whole daf in parallel.
-  const nested = await Promise.all(
-    commentators.map(c => fetchCommentator(c, tractate, daf))
+  // Filter out cross-tractate entries (e.g. "Rif Shevuot" on a BB daf)
+  const relevant = discoveredIndexTitles.filter(t => {
+    const display = extractDisplayName(t, tractate);
+    return display !== t || t.includes(tractate); // kept if it normalized or contains the tractate
+  });
+
+  // Fetch each commentator's text for the whole daf in parallel
+  const results = await Promise.all(
+    relevant.map(indexTitle => {
+      // Sefaria ref: drop " on Tractate" / " Tractate" and rebuild
+      const ref = indexTitle.replace(/ /g, "_");
+      return fetchCommentatorByIndexTitle(ref, tractate, daf);
+    })
   );
 
-  // Distribute to segments.
-  for (let ci = 0; ci < commentators.length; ci++) {
-    const name = commentators[ci];
-    // Normalize display name: "Ran on Nedarim" → "Ran"
-    const display = name.split(" on ")[0];
-    const heName = COMMENTATOR_HEBREW[display] || COMMENTATOR_HEBREW[name] || "";
-    const items = nested[ci];
-    for (let segIdxZero = 0; segIdxZero < items.length; segIdxZero++) {
+  // Distribute to segments with display-name metadata + priority
+  for (let i = 0; i < relevant.length; i++) {
+    const indexTitle = relevant[i];
+    const displayName = extractDisplayName(indexTitle, tractate);
+    const heName = COMMENTATOR_HEBREW[displayName] || "";
+    const priority = COMMENTATOR_PRIORITY[displayName] ?? 0;
+    const nested = results[i];
+    for (let segIdxZero = 0; segIdxZero < nested.length; segIdxZero++) {
       const segIdx = segIdxZero + 1;
       const seg = segments[segIdxZero];
       if (!seg) continue;
-      for (let subIdxZero = 0; subIdxZero < items[segIdxZero].length; subIdxZero++) {
+      for (let subIdxZero = 0; subIdxZero < nested[segIdxZero].length; subIdxZero++) {
         seg.commentaries.push({
-          commentator: display,
+          commentator: displayName,
+          index_title: indexTitle,
           hebrew_name: heName,
-          ref: `${name} on ${baseRef}:${segIdx}:${subIdxZero+1}`,
+          priority,
+          ref: `${indexTitle} ${daf}:${segIdx}:${subIdxZero+1}`,
           sub_index: subIdxZero + 1,
-          hebrew: clean(items[segIdxZero][subIdxZero]),
+          hebrew: clean(nested[segIdxZero][subIdxZero]),
         });
       }
     }
   }
   return { base_ref: baseRef, segments };
+}
+
+// Fetch by any index_title directly.
+async function fetchCommentatorByIndexTitle(indexTitleSlug, tractate, daf) {
+  // indexTitleSlug might be "Chiddushei_Ramban_on_Bava_Batra" or "Rif_Bava_Batra"
+  // Append the daf.
+  const url = `${SEFARIA}/${indexTitleSlug}.${daf}?version=hebrew`;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return [];
+    const data = await r.json();
+    const v = (data.versions || [])[0];
+    if (!v) return [];
+    const text = v.text || [];
+    return text.map(item => {
+      if (Array.isArray(item)) return item.filter(s => s);
+      if (typeof item === "string" && item) return [item];
+      return [];
+    });
+  } catch { return []; }
 }
 
 // ---------- Index (tractates) ----------
@@ -497,9 +579,10 @@ function renderDafDesktop(daf) {
                       : byName.has("Ran") ? "Ran"
                       : null;
 
+  const wrapper = document.createElement("div");
+
   const page = document.createElement("div");
   page.className = "daf-page";
-
   if (rashiSideName) {
     page.appendChild(renderMargin("rashi-margin", rashiSideName, byName.get(rashiSideName)));
   }
@@ -507,7 +590,57 @@ function renderDafDesktop(daf) {
     page.appendChild(renderMargin("tosafot-margin", "Tosafot", byName.get("Tosafot")));
   }
   page.appendChild(renderGemaraBody(daf.segments));
-  return page;
+  wrapper.appendChild(page);
+
+  // Secondary meforshim: everything that's NOT Rashi/Rashbam/Ran/Tosafot.
+  const primaryNames = new Set([rashiSideName, "Tosafot"].filter(Boolean));
+  const secondary = [...byName.entries()]
+    .filter(([name]) => !primaryNames.has(name))
+    .sort((a, b) => {
+      const pa = COMMENTATOR_PRIORITY[a[0]] ?? 0;
+      const pb = COMMENTATOR_PRIORITY[b[0]] ?? 0;
+      return pb - pa;
+    });
+
+  if (secondary.length) {
+    wrapper.appendChild(renderMoreMeforshim(secondary));
+  }
+
+  return wrapper;
+}
+
+function renderMoreMeforshim(pairs) {
+  const section = document.createElement("section");
+  section.className = "more-meforshim";
+  const title = document.createElement("div");
+  title.className = "more-mef-title";
+  title.textContent = "More meforshim on this daf";
+  section.appendChild(title);
+  for (const [name, items] of pairs) {
+    const details = document.createElement("details");
+    details.className = "more-mef-card";
+    const summary = document.createElement("summary");
+    const heName = COMMENTATOR_HEBREW[name] || "";
+    summary.innerHTML = `
+      <span class="more-mef-name">${escapeHtml(name)}</span>
+      <span class="more-mef-he">${escapeHtml(heName)}</span>
+      <span class="more-mef-count">${items.length}</span>
+    `;
+    details.appendChild(summary);
+    for (const c of items) {
+      const d = document.createElement("div");
+      d.className = "dibur hebrew-text clickable";
+      d.appendChild(withHeadword(c.hebrew));
+      d.onclick = () => openExplain(c.ref, c.commentator, c.hebrew, null, {
+        kind: "commentary",
+        commentator: c.commentator,
+        text: c.hebrew,
+      });
+      details.appendChild(d);
+    }
+    section.appendChild(details);
+  }
+  return section;
 }
 
 function renderDafMobile(daf) {
@@ -538,17 +671,19 @@ function renderDafMobile(daf) {
     article.appendChild(label);
     article.appendChild(gem);
 
-    // Group this segment's commentaries by commentator
+    // Group this segment's commentaries by commentator, sorted by priority.
     const byName = groupBy(seg.commentaries, c => c.commentator);
-    const rashiSideName = byName.has("Rashi") ? "Rashi"
-                        : byName.has("Rashbam") ? "Rashbam"
-                        : byName.has("Ran") ? "Ran"
-                        : null;
-    if (rashiSideName) {
-      article.appendChild(renderMobileCommBlock("rashi", rashiSideName, byName.get(rashiSideName)));
-    }
-    if (byName.has("Tosafot")) {
-      article.appendChild(renderMobileCommBlock("tosafot", "Tosafot", byName.get("Tosafot")));
+    const sorted = [...byName.entries()].sort((a, b) => {
+      const pa = COMMENTATOR_PRIORITY[a[0]] ?? 0;
+      const pb = COMMENTATOR_PRIORITY[b[0]] ?? 0;
+      return pb - pa;
+    });
+    for (const [name, items] of sorted) {
+      const colKind =
+        ["Rashi", "Rashbam", "Ran"].includes(name) ? "rashi" :
+        name === "Tosafot" ? "tosafot" :
+        "other";
+      article.appendChild(renderMobileCommBlock(colKind, name, items));
     }
 
     page.appendChild(article);
@@ -757,7 +892,18 @@ Explain any of these that appear: "וקשה", "ותירץ", "ואומר ר״י",
 
 Stay close to the Hebrew. Quote phrases verbatim in Hebrew and then translate + explain. Typical length for a long Tosafot: 500–900 words of careful explanation. Don't rush.
 
-All anti-hallucination rules still apply: don't fabricate quotes from sources you don't have in context.`;
+All anti-hallucination rules still apply: don't fabricate quotes from sources you don't have in context.
+
+## HOW TO USE OTHER MEFORSHIM (critical)
+
+You'll have many rishonim + acharonim on this daf available to you (Ramban, Rashba, Meiri, Maharsha, Pnei Yehoshua, etc.). In deep Tosafot mode, these are ESPECIALLY valuable — Maharsha and Pnei Yehoshua often comment directly on the Tosafot you're analyzing.
+
+But don't enumerate them. Bring them in AT THE MOMENT their voice advances the analysis:
+- When walking through Tosafot's first kushya, if Maharsha sharpens that kushya — use Maharsha there
+- When explaining why Tosafot rejected an answer, if Pnei Yehoshua clarifies the rejection — use him there
+- When the chosen tirutz involves a chiddush, if Ramban frames the chiddush differently — that's when to mention Ramban
+
+The structure of your answer follows TOSAFOT'S argument; meforshim are brought in to clarify stages of it, not given their own sections. Teach the way a rebbi teaches a long Tosafot: you're walking through Tosafot, pulling in Maharsha/Ramban/etc. when they illuminate a specific move.`;
 
 const SYSTEM_PROMPT = `You are a patient chavrusa explaining Gemara to a learner.
 
@@ -824,7 +970,40 @@ You are a teacher, not an entertainer. Keep the focus on learning.
   a chavrusa, not a judge.
 
 The tone: a warm, serious talmid chacham who meets the learner where they
-are but keeps the learning real.`;
+are but keeps the learning real.
+
+## HOW TO USE MULTIPLE MEFORSHIM (critical)
+
+You will be given many meforshim on this daf — Rashi/Rashbam, Tosafot, often
+Ramban, Rashba, Ritva, Meiri, Rif, Rosh, and others. **Do NOT enumerate them
+mechanically.** "Rashbam says A, Ramban says B, Meiri says C" is a listing,
+not teaching. A student leaves that confused about what to actually think.
+
+Instead, teach the way a good rebbi teaches:
+
+- **Start with the core question or tension** — what's the gemara doing,
+  what's unclear, what's the machlokes (if any).
+- **Build toward understanding.** Bring in a mefaresh at the moment their
+  point advances the explanation. Their name comes as a credit for the
+  insight, not as a header.
+- **Synthesize into ONE coherent read** when possible. Only split into
+  "Ramban thinks this, Rashba thinks that" when the disagreement matters
+  and is relevant to the learner's question.
+- **Name a specific mefaresh only when their voice is necessary.** If three
+  meforshim say the same thing, pick the clearest one and quote that.
+- **If there's a genuine machlokes that matters**, explain WHY the
+  disagreement matters and what's at stake. Don't flatten it, but also
+  don't force it.
+- **Don't drag in a mefaresh that doesn't serve the current point.** Having
+  them in your context doesn't mean they all have to appear in the answer.
+
+Good answer: "The question here is X. Tosafot is bothered because Y, and
+proposes Z. Ramban pushes back: he argues that Z doesn't work when W,
+and offers a sharper framing — that the real move is V." (flows as one
+argument)
+
+Bad answer: "Rashbam explains A. Tosafot says B. Ramban says C. Meiri
+says D." (listing, not teaching)`;
 
 function buildUserMessage(ref, ctx, currentDaf) {
   const lines = [];

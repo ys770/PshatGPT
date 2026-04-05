@@ -1122,6 +1122,49 @@ main { max-width: 1400px; margin: 0 auto; padding: 2rem; }
 /* Mobile column toggles — hidden on desktop */
 .col-toggles { display: none; }
 
+/* Secondary meforshim: expandable cards below the tzuras hadaf */
+.more-meforshim {
+  margin-top: 1.5rem; padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+}
+.more-mef-title {
+  font-size: 0.7rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted); font-weight: 600; margin-bottom: 0.9rem;
+  font-family: Georgia, serif; text-align: center;
+}
+.more-mef-card {
+  background: var(--card); border: 1px solid var(--rule);
+  border-radius: 3px; margin-bottom: 0.5rem;
+}
+.more-mef-card > summary {
+  padding: 0.6rem 0.9rem; cursor: pointer; list-style: none;
+  display: flex; align-items: baseline; gap: 0.6rem;
+  transition: background 0.12s;
+}
+.more-mef-card > summary:hover { background: var(--hover); }
+.more-mef-card > summary::-webkit-details-marker { display: none; }
+.more-mef-card > summary::before {
+  content: "▸"; color: var(--accent); font-size: 0.85rem;
+  transition: transform 0.15s; display: inline-block;
+}
+.more-mef-card[open] > summary::before { transform: rotate(90deg); }
+.more-mef-name { font-weight: 600; color: var(--accent); font-size: 0.95rem; }
+.more-mef-he {
+  font-family: "Frank Ruhl Libre", "David", serif;
+  direction: rtl; color: var(--muted); font-size: 1rem;
+}
+.more-mef-count {
+  margin-left: auto; background: var(--bg); padding: 0.1rem 0.45rem;
+  border-radius: 10px; font-size: 0.7rem; color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.more-mef-card .dibur {
+  padding: 0.55rem 0.95rem; border-top: 1px solid var(--rule);
+  direction: rtl; text-align: right; line-height: 1.65;
+  font-size: 0.95rem;
+}
+.more-mef-card .dibur + .dibur { border-top: 1px dotted var(--rule); }
+
 /* Responsive: stack columns on narrow screens */
 @media (max-width: 900px) {
   .col-toggles {
@@ -1206,6 +1249,7 @@ main { max-width: 1400px; margin: 0 auto; padding: 2rem; }
     border-left: 2px solid var(--accent);
   }
   .mseg-tosafot { border-left: 2px solid #7a6055; }
+  .mseg-other { border-left: 2px solid #a89677; opacity: 0.96; }
   .mseg-comm-label {
     font-family: Georgia, serif;
     font-size: 0.58rem;
