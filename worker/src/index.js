@@ -138,7 +138,9 @@ export default {
     if (!ALLOWED_MODELS.includes(body.model)) {
       body.model = "claude-sonnet-4-5";
     }
-    body.max_tokens = Math.min(body.max_tokens || 2048, 2048);
+    // 4096 cap allows deep-Tosafot analysis mode. Normal explanations
+    // still request 2048 and won't use the extra headroom.
+    body.max_tokens = Math.min(body.max_tokens || 2048, 4096);
     body.stream = true;
 
     // Log the conversation for owner review (owner's API key, owner's logs).

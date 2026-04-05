@@ -170,6 +170,7 @@ let currentStream = null;
 let conversation = [];       // [{role, content}, ...] within one modal session
 let currentSystem = "";
 let currentUserPrefix = "";
+let currentMaxTokens = 2048;
 
 // ---------- Sefaria fetching ----------
 const TAG_RE = /<[^>]+>/g;
@@ -686,10 +687,25 @@ function openExplain(ref, kind, hebrewText, englishText, context) {
   he.className = "hebrew-text";
   he.textContent = hebrewText;
   src.appendChild(he);
+  // Decide whether to use deep-Tosafot mode.
+  const isDeepTosafot = context?.kind === "commentary"
+    && context?.commentator === "Tosafot"
+    && (context?.text?.length || 0) >= DEEP_TOSAFOT_THRESHOLD;
+
+  // Visual indicator in the modal header.
+  const kindEl = $("#modal-kind");
+  if (isDeepTosafot) {
+    kindEl.textContent = "deep tosafot";
+    kindEl.classList.add("modal-kind-deep");
+  } else {
+    kindEl.classList.remove("modal-kind-deep");
+  }
+
   $("#modal-body").innerHTML = '<span class="cursor"></span>';
   // Reset conversation for the new segment.
   conversation = [];
-  currentSystem = SYSTEM_PROMPT;
+  currentSystem = isDeepTosafot ? DEEP_TOSAFOT_PROMPT : SYSTEM_PROMPT;
+  currentMaxTokens = isDeepTosafot ? DEEP_MAX_TOKENS : 2048;
   currentUserPrefix = buildUserMessage(ref, context, currentDaf);
   $("#followup-input").value = "";
   $("#modal").classList.remove("modal-hidden");
@@ -703,6 +719,45 @@ function closeModal() {
   conversation = [];
   if (!anyModalOpen()) unlockBodyScroll();
 }
+
+// A Tosafot longer than this triggers the deep-analysis system prompt.
+const DEEP_TOSAFOT_THRESHOLD = 400;
+const DEEP_MAX_TOKENS = 4096;
+
+const DEEP_TOSAFOT_PROMPT = `You are a talmid chacham doing a DEEP, STRUCTURED analysis of a long Tosafot for a serious learner. This is iyun-level — do NOT summarize. Break it down fully, piece by piece.
+
+Structure your response with these sections:
+
+## 1. Dibur HaMatchil (the headword)
+State the exact phrase from the gemara that Tosafot is commenting on. What in the gemara text prompted Tosafot to comment at all? (Often there's an assumption or an easy read that Tosafot wants to disturb.)
+
+## 2. The Kushya
+State the problem Tosafot is raising. Where does the problem come from — this sugya itself, or a parallel gemara / pasuk / principle? Be explicit: "Tosafot is bothered that X, because elsewhere Y."
+
+## 3. Proposed Answers (walk through ALL of them)
+Tosafot often considers multiple tirutzim before settling on one. Walk through EACH in order:
+- **First answer**: what's proposed, who says it (if named — ר״י, ר״ת, etc.), and why Tosafot finds it insufficient
+- **Second answer**: same
+- …and so on
+Do NOT skip rejected answers. They are essential to the argument — they show what doesn't work and why. Explain each rejection carefully.
+
+## 4. The Chosen Tirutz
+State the answer Tosafot lands on. Explain clearly WHY it resolves the kushya. What distinction is Tosafot drawing? What's the key move?
+
+## 5. The Chiddush
+What new principle, distinction, or rule does this Tosafot establish? Would a learner who mastered this Tosafot now see other sugyot differently? Name the chiddush in a single crisp sentence if possible.
+
+## 6. Cross-references (if Tosafot cites other sugyot)
+List each place Tosafot mentions — give the reference and what Tosafot says about it. If you don't have the cited source in your context, note that and say "verify against the actual sugya."
+
+## 7. Technical terms
+Explain any of these that appear: "וקשה", "ותירץ", "ואומר ר״י", "וי״ל", "מיהו", "תימה", "הקשה", "ותדע". These aren't filler — they signal the structure of the argument.
+
+---
+
+Stay close to the Hebrew. Quote phrases verbatim in Hebrew and then translate + explain. Typical length for a long Tosafot: 500–900 words of careful explanation. Don't rush.
+
+All anti-hallucination rules still apply: don't fabricate quotes from sources you don't have in context.`;
 
 const SYSTEM_PROMPT = `You are a patient chavrusa explaining Gemara to a learner.
 
@@ -887,7 +942,7 @@ async function streamTurn() {
       signal: controller.signal,
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 2048,
+        max_tokens: currentMaxTokens,
         temperature: 0.3,
         system: currentSystem,
         messages: conversation,
