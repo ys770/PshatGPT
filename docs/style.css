@@ -158,7 +158,7 @@ main { max-width: 1400px; margin: 0 auto; padding: 2rem; }
 
 /* Modal */
 .modal-hidden { display: none !important; }
-#modal {
+#modal, #settings-modal {
   position: fixed; inset: 0; z-index: 100;
   display: flex; align-items: center; justify-content: center;
   animation: fadeIn 0.15s;
