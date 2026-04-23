@@ -1584,6 +1584,45 @@ body.modal-open {
 .tool-use-note.tool-use-done { opacity: 0.7; }
 .md-content { display: block; }
 
+/* Terminal status strip for a finished stream (done / truncated / error). */
+.stream-status {
+  display: block;
+  margin-top: 0.7rem;
+  padding: 0.4rem 0.7rem;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 0.78rem;
+  font-style: italic;
+  border-radius: 3px;
+  border: 1px solid var(--rule);
+  color: var(--muted);
+}
+.stream-status-done {
+  opacity: 0.7;
+}
+.stream-status-done::before {
+  content: "✓  ";
+  font-style: normal;
+  color: var(--accent);
+}
+.stream-status-truncated {
+  color: #8a5a1f;
+  border-color: #d9b878;
+  background: #fff8e6;
+}
+.stream-status-truncated::before {
+  content: "⚠  ";
+  font-style: normal;
+}
+.stream-status-error {
+  color: #8b2a2a;
+  border-color: #e0b5b5;
+  background: #fdf2f2;
+}
+.stream-status-error::before {
+  content: "⚠  ";
+  font-style: normal;
+}
+
 /* Follow-up input bar */
 .followup-form {
   display: flex; gap: 0.5rem; align-items: flex-end;

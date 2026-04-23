@@ -1038,7 +1038,7 @@ function openExplain(ref, kind, hebrewText, englishText, context) {
   // Reset conversation for the new segment.
   conversation = [];
   currentSystem = isDeep ? DEEP_TOSAFOT_PROMPT : SYSTEM_PROMPT;
-  currentMaxTokens = isDeep ? DEEP_MAX_TOKENS : 2048;
+  currentMaxTokens = isDeep ? deepBudgetFor(context?.text) : 2048;
   currentUserPrefix = buildUserMessage(ref, context, currentDaf);
   $("#followup-input").value = "";
   $("#modal").classList.remove("modal-hidden");
@@ -1164,6 +1164,7 @@ function printExplanation() {
     display: none;
   }
   .cursor { display: none; }
+  .stream-status { display: none; }
   footer.print-foot {
     margin-top: 1.5rem; padding-top: 0.6rem;
     border-top: 1px solid #d9cfb7;
@@ -1227,7 +1228,17 @@ function updateMinimizedPillState() {
 
 // A commentary longer than this triggers the deep-analysis system prompt.
 const DEEP_THRESHOLD = 400;
-const DEEP_MAX_TOKENS = 4096;
+// Deep-mode output scales with source length — long Tosfos need long analysis.
+// Mirrors gemara/agents/explainer.py: ~6 output tokens per Hebrew source char,
+// floored at 4096 so short segments have room, ceilinged at 16384. A fixed
+// 4096 was silently truncating multi-part Tosfos mid-stream.
+const DEEP_MIN_BUDGET = 4096;
+const DEEP_MAX_BUDGET = 16384;
+const DEEP_TOKENS_PER_CHAR = 6;
+function deepBudgetFor(text) {
+  const est = (text?.length || 0) * DEEP_TOKENS_PER_CHAR;
+  return Math.max(DEEP_MIN_BUDGET, Math.min(DEEP_MAX_BUDGET, est));
+}
 
 const IYUN_MODE_PROMPT = `You are a rosh yeshiva doing **iyun** — deep, comprehensive research on a sugya. The learner has activated research mode (this is expensive so use your tools thoughtfully). Produce a structured, thorough analysis.
 
@@ -1602,7 +1613,7 @@ function openLogicChain() {
   $("#modal-body").innerHTML = '<span class="cursor"></span>';
   conversation = [];
   currentSystem = LOGIC_CHAIN_PROMPT;
-  currentMaxTokens = DEEP_MAX_TOKENS;
+  currentMaxTokens = DEEP_MIN_BUDGET;
   currentUserPrefix = buildLogicChainMessage(currentDaf);
   $("#followup-input").value = "";
   $("#modal").classList.remove("modal-hidden");
@@ -1700,16 +1711,26 @@ async function streamTurn(toolRound = 0) {
   if (toolRound === 0) {
     assistantDiv = document.createElement("div");
     assistantDiv.className = "turn-assistant";
-    assistantDiv.innerHTML = '<span class="cursor"></span>';
     if (conversation.length === 1) {
       body.innerHTML = "";
     }
     body.appendChild(assistantDiv);
     body.scrollTop = body.scrollHeight;
   } else {
-    // Subsequent rounds reuse the last assistantDiv
+    // Subsequent rounds reuse the last assistantDiv but get their own
+    // text block — prior rounds' text stays put, with any tool-use notes
+    // from that round sitting between them in natural reading order.
     assistantDiv = body.querySelector(".turn-assistant:last-child");
+    // Freeze any cursor still blinking on a prior round's block.
+    assistantDiv.querySelectorAll(".cursor").forEach((el) => el.remove());
   }
+
+  // This round's text target. Starts with a placeholder cursor so the
+  // "waiting" state is visible before the first delta lands.
+  const mdDiv = document.createElement("div");
+  mdDiv.className = "md-content";
+  mdDiv.innerHTML = '<span class="cursor"></span>';
+  assistantDiv.appendChild(mdDiv);
 
   // Disable input during streaming.
   const input = $("#followup-input");
@@ -1798,6 +1819,7 @@ async function streamTurn(toolRound = 0) {
   // Accumulate both text and tool_use blocks as they stream in.
   let accumulatedText = "";
   let stopReason = null;
+  let streamErrorMessage = null;
   const contentBlocks = []; // [{type:'text',text:'...'}, {type:'tool_use',id,name,input}]
   const toolInputAccumulators = {}; // index → partial JSON string
 
@@ -1833,7 +1855,7 @@ async function streamTurn(toolRound = 0) {
               accumulatedText += evt.delta.text;
               contentBlocks[evt.index].text += evt.delta.text;
               // Render just the text blocks accumulated so far
-              updateAssistantText(assistantDiv, accumulatedText);
+              updateAssistantText(mdDiv, accumulatedText);
               body.scrollTop = body.scrollHeight;
             } else if (evt.delta?.type === "input_json_delta") {
               toolInputAccumulators[evt.index] += evt.delta.partial_json || "";
@@ -1854,10 +1876,13 @@ async function streamTurn(toolRound = 0) {
       }
     }
   } catch (err) {
-    if (err.name !== "AbortError") console.error(err);
+    if (err.name !== "AbortError") {
+      console.error(err);
+      streamErrorMessage = err.message || String(err);
+    }
   }
 
-  updateAssistantText(assistantDiv, accumulatedText);
+  updateAssistantText(mdDiv, accumulatedText);
 
   // If Claude wanted to call tools, execute them and loop.
   if (stopReason === "tool_use" && toolRound < MAX_TOOL_ROUNDS) {
@@ -1901,22 +1926,57 @@ async function streamTurn(toolRound = 0) {
   }
   currentStream = null;
   input.disabled = false; sendBtn.disabled = false;
+  finalizeStreamStatus(assistantDiv, terminalStatusFor(stopReason, accumulatedText, streamErrorMessage));
   if (!$("#modal").classList.contains("modal-hidden")) input.focus();
   // If minimized, update pill to show "done" state.
   updateMinimizedPillState();
 }
 
-function updateAssistantText(assistantDiv, text) {
-  // Preserve tool-use notes inside the div, replace/update the markdown section.
-  let mdDiv = assistantDiv.querySelector(".md-content");
-  if (!mdDiv) {
-    // Clear the initial cursor
-    assistantDiv.innerHTML = "";
-    mdDiv = document.createElement("div");
-    mdDiv.className = "md-content";
-    assistantDiv.appendChild(mdDiv);
+// Pick the user-visible status for a completed stream. `null` = show nothing.
+function terminalStatusFor(stopReason, text, errorMessage) {
+  if (errorMessage) {
+    return {
+      kind: "error",
+      text: text ? `Stream interrupted — ${errorMessage}` : `Error — ${errorMessage}`,
+    };
   }
-  mdDiv.innerHTML = renderMarkdownish(text) + (text ? '<span class="cursor"></span>' : '<span class="cursor"></span>');
+  if (stopReason === "max_tokens") {
+    return {
+      kind: "truncated",
+      text: "Response hit the length cap and was truncated. Ask a follow-up to continue.",
+    };
+  }
+  if (stopReason === "tool_use") {
+    // tool_use at this point means we exhausted MAX_TOOL_ROUNDS without Claude finishing.
+    return { kind: "truncated", text: "Stopped — reached the tool-call limit for this turn." };
+  }
+  if (stopReason === null) {
+    return {
+      kind: "error",
+      text: text ? "Connection dropped before the response finished." : "No response received.",
+    };
+  }
+  // end_turn, stop_sequence — normal completion.
+  return { kind: "done", text: "done" };
+}
+
+function finalizeStreamStatus(assistantDiv, status) {
+  if (!assistantDiv) return;
+  // Streaming has stopped — strip any cursor anywhere under this turn.
+  assistantDiv.querySelectorAll(".cursor").forEach((el) => el.remove());
+  // Replace any prior status strip (safe across tool-loop recursion or re-finalize).
+  assistantDiv.querySelectorAll(".stream-status").forEach((el) => el.remove());
+  if (!status) return;
+  const strip = document.createElement("div");
+  strip.className = `stream-status stream-status-${status.kind}`;
+  strip.textContent = status.text;
+  assistantDiv.appendChild(strip);
+}
+
+function updateAssistantText(mdDiv, text) {
+  // Render only this round's text into its own block. Prior rounds'
+  // blocks (and the tool-use notes between them) are untouched.
+  mdDiv.innerHTML = renderMarkdownish(text) + '<span class="cursor"></span>';
 }
 
 function renderMarkdownish(text) {
