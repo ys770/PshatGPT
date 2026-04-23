@@ -225,6 +225,92 @@ function closeModal() {
   }
 }
 
+function printExplanation() {
+  const body = $("#modal-body");
+  if (!body) return;
+  const bodyClone = body.cloneNode(true);
+  bodyClone.querySelectorAll(".cursor").forEach(el => el.remove());
+  const bodyHtml = bodyClone.innerHTML.trim();
+  if (!bodyHtml) return;
+
+  const kind = ($("#modal-kind").textContent || "").trim();
+  const ref = ($("#modal-ref").textContent || "").trim();
+  const sourceHtml = $("#modal-source").innerHTML;
+  const title = [kind, ref].filter(Boolean).join(" · ") || "PshatGPT";
+  const printedAt = new Date().toLocaleString();
+
+  const win = window.open("", "_blank", "width=820,height=900");
+  if (!win) {
+    alert("Couldn't open the print window — please allow pop-ups for this site.");
+    return;
+  }
+  win.document.open();
+  win.document.write(`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>${escapeHtml(title)} — PshatGPT</title>
+<style>
+  @page { margin: 0.75in; }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    color: #1a1410; line-height: 1.6;
+    max-width: 720px; margin: 1.5rem auto; padding: 0 1rem;
+  }
+  header.print-head {
+    border-bottom: 1px solid #b8a888;
+    padding-bottom: 0.7rem; margin-bottom: 1rem;
+  }
+  .print-kind {
+    display: inline-block;
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em;
+    background: #1a1410; color: #fdf9ef;
+    padding: 0.2rem 0.55rem; border-radius: 3px; margin-right: 0.6rem;
+    vertical-align: middle;
+  }
+  .print-ref {
+    font-family: 'Menlo', 'Consolas', monospace;
+    font-size: 0.9rem; color: #5a4a36;
+    vertical-align: middle;
+  }
+  .print-meta { font-size: 0.72rem; color: #7a6a56; margin-top: 0.4rem; }
+  .print-source {
+    background: #fbf6e9; border: 1px solid #ead9b4;
+    padding: 0.7rem 1rem; margin-bottom: 1.2rem; border-radius: 3px;
+  }
+  .hebrew-text {
+    font-size: 1.1rem; direction: rtl; text-align: right; line-height: 1.8;
+  }
+  .print-body p { margin: 0 0 0.6rem; }
+  .print-body strong { color: #7a1f2e; }
+  .cursor { display: none; }
+  footer.print-foot {
+    margin-top: 1.5rem; padding-top: 0.6rem;
+    border-top: 1px solid #d9cfb7;
+    font-size: 0.7rem; color: #7a6a56; text-align: center;
+  }
+  @media print { body { margin: 0; } }
+</style>
+</head>
+<body>
+  <header class="print-head">
+    <span class="print-kind">${escapeHtml(kind)}</span>
+    <span class="print-ref">${escapeHtml(ref)}</span>
+    <div class="print-meta">PshatGPT · printed ${escapeHtml(printedAt)}</div>
+  </header>
+  <div class="print-source">${sourceHtml}</div>
+  <div class="print-body">${bodyHtml}</div>
+  <footer class="print-foot">PshatGPT</footer>
+  <script>
+    window.addEventListener("load", function () {
+      setTimeout(function () { window.focus(); window.print(); }, 150);
+    });
+  <\/script>
+</body>
+</html>`);
+  win.document.close();
+}
+
 async function startStream(ref) {
   if (currentStream) currentStream.abort();
   const body = $("#modal-body");
@@ -334,6 +420,9 @@ $$(".amud-btn").forEach(b => {
 });
 document.querySelectorAll("[data-close]").forEach(el => {
   el.addEventListener("click", closeModal);
+});
+document.querySelectorAll("[data-print]").forEach(el => {
+  el.addEventListener("click", printExplanation);
 });
 document.addEventListener("keydown", e => {
   if (e.key === "Escape") closeModal();
