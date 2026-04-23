@@ -179,11 +179,19 @@ def explain(ref: str, request: Request) -> StreamingResponse:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
             yield "data: [DONE]\n\n"
             return
+        saw_done = False
         try:
-            for chunk in explain_stream(llm, item):
-                yield f"data: {json.dumps({'text': chunk})}\n\n"
+            for event in explain_stream(llm, item):
+                if event.get("type") == "done":
+                    saw_done = True
+                yield f"data: {json.dumps(event)}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        # Guarantee a terminal status event even if the stream raised mid-way
+        # — the client uses this to drop the blinking cursor and show a
+        # completion indicator.
+        if not saw_done:
+            yield f"data: {json.dumps({'type': 'done', 'stop_reason': None})}\n\n"
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(

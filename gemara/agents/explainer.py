@@ -61,7 +61,11 @@ def _build_context(item: dict) -> str:
     return "\n".join(lines)
 
 
-def explain_stream(llm: LLMClient, item: dict) -> Iterator[str]:
-    """Stream an explanation for a clicked item."""
+def explain_stream(llm: LLMClient, item: dict) -> Iterator[dict]:
+    """Stream explanation events for a clicked item.
+
+    Yields dicts: {"type": "text", "text": "..."} chunks followed by a
+    terminal {"type": "done", "stop_reason": "..."} event.
+    """
     user_msg = _build_context(item)
     yield from llm.stream(SYSTEM_PROMPT, user_msg, temperature=0.3)

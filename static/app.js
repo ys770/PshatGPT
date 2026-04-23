@@ -311,11 +311,23 @@ function printExplanation() {
   win.document.close();
 }
 
+// If no chunk arrives for this long, treat the stream as stuck.
+const STREAM_IDLE_WARN_MS = 40000;
+
+function renderStatus(kind, message) {
+  // kind: "ready" | "truncated" | "error" | "stuck"
+  const cls = `stream-status stream-status-${kind}`;
+  return `<div class="${cls}">${escapeHtml(message)}</div>`;
+}
+
 async function startStream(ref) {
   if (currentStream) currentStream.abort();
   const body = $("#modal-body");
   body.innerHTML = '<span class="cursor"></span>';
   let accumulated = "";
+  let stopReason = null;
+  let sawAnyChunk = false;
+  let streamError = null;
 
   const key = getApiKey();
   const headers = {};
@@ -324,17 +336,38 @@ async function startStream(ref) {
   const controller = new AbortController();
   currentStream = controller;
 
+  // Watchdog: if no chunk arrives for STREAM_IDLE_WARN_MS, surface a "stuck"
+  // notice to the user so they know the response stalled.
+  let idleTimer = null;
+  let stuckNotified = false;
+  const resetIdleTimer = () => {
+    if (idleTimer) clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      if (controller.signal.aborted) return;
+      stuckNotified = true;
+      const suffix = accumulated
+        ? renderStatus("stuck", "The response seems stuck — no new text for a while. You can close this and try again.")
+        : renderStatus("stuck", "No response yet — the request may be stuck. You can close this and try again.");
+      body.innerHTML = (accumulated ? renderMarkdownish(accumulated) : "") + suffix;
+    }, STREAM_IDLE_WARN_MS);
+  };
+  resetIdleTimer();
+
   let resp;
   try {
     resp = await fetch(`/api/explain?ref=${encodeURIComponent(ref)}`, {
       headers, signal: controller.signal,
     });
   } catch (err) {
+    if (idleTimer) clearTimeout(idleTimer);
     if (err.name !== "AbortError") body.innerHTML = `<em>Network error: ${escapeHtml(err.message)}</em>`;
+    currentStream = null;
     return;
   }
   if (!resp.ok) {
+    if (idleTimer) clearTimeout(idleTimer);
     body.innerHTML = `<em>Error ${resp.status}</em>`;
+    currentStream = null;
     return;
   }
 
@@ -356,12 +389,19 @@ async function startStream(ref) {
         try {
           const d = JSON.parse(line);
           if (d.error) {
-            body.innerHTML = `<em>Error: ${escapeHtml(d.error)}</em>`;
-            controller.abort();
-            return;
+            streamError = d.error;
+            continue;
           }
-          if (d.text) {
-            accumulated += d.text;
+          if (d.type === "done") {
+            stopReason = d.stop_reason || null;
+            continue;
+          }
+          // Accept both the new {type:"text", text} and the legacy {text}.
+          const textChunk = d.text;
+          if (textChunk) {
+            sawAnyChunk = true;
+            resetIdleTimer();
+            accumulated += textChunk;
             body.innerHTML = renderMarkdownish(accumulated) + '<span class="cursor"></span>';
             body.scrollTop = body.scrollHeight;
           }
@@ -369,9 +409,36 @@ async function startStream(ref) {
       }
     }
   } catch (err) {
-    if (err.name !== "AbortError") console.error(err);
+    if (err.name !== "AbortError") {
+      streamError = err.message || String(err);
+    }
+  } finally {
+    if (idleTimer) clearTimeout(idleTimer);
   }
-  body.innerHTML = renderMarkdownish(accumulated);
+
+  // Decide which terminal status to show. The server always emits a
+  // {type:"done"} event at the end; a missing stop_reason means the stream
+  // was cut off before completing (network/proxy timeout, server crash, etc).
+  let statusHtml = "";
+  if (streamError) {
+    statusHtml = renderStatus("error", `Error: ${streamError}`);
+  } else if (!sawAnyChunk) {
+    statusHtml = renderStatus("error", "No response received. Try again.");
+  } else if (stopReason === "max_tokens") {
+    statusHtml = renderStatus(
+      "truncated",
+      "⚠ Response was cut off (hit the length limit). Try clicking again for a fresh attempt."
+    );
+  } else if (stopReason === "end_turn" || stopReason === "stop_sequence") {
+    statusHtml = renderStatus("ready", "✓ Ready");
+  } else {
+    statusHtml = renderStatus(
+      "stuck",
+      "⚠ The response stopped unexpectedly and may be incomplete. Try clicking again."
+    );
+  }
+
+  body.innerHTML = renderMarkdownish(accumulated) + statusHtml;
   currentStream = null;
 }
 

@@ -242,3 +242,18 @@ main { max-width: 1400px; margin: 0 auto; padding: 2rem; }
   animation: blink 0.9s infinite;
 }
 @keyframes blink { 50% { opacity: 0; } }
+
+.stream-status {
+  margin-top: 1rem; padding: 0.5rem 0.75rem;
+  border-radius: 3px; font-size: 0.8rem;
+  border: 1px solid var(--rule);
+}
+.stream-status-ready {
+  color: #2f6a3a; background: #eef6ef; border-color: #c5ddc9;
+}
+.stream-status-truncated, .stream-status-stuck {
+  color: #8a5a00; background: #fbf3e2; border-color: #e6d4a4;
+}
+.stream-status-error {
+  color: #8a2a2a; background: #fbeceb; border-color: #e6bab7;
+}
