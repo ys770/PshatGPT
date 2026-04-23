@@ -1425,7 +1425,7 @@ main { max-width: 1400px; margin: 0 auto; padding: 2rem; }
 }
 .modal-ref { font-size: 0.85rem; color: var(--muted); font-family: monospace; }
 .modal-header-actions { display: flex; gap: 0.3rem; align-items: center; }
-.modal-close, .modal-minimize {
+.modal-close, .modal-minimize, .modal-print {
   background: transparent; border: 1px solid transparent;
   color: var(--muted);
   line-height: 1; cursor: pointer;
@@ -1438,10 +1438,17 @@ main { max-width: 1400px; margin: 0 auto; padding: 2rem; }
   font-size: 1.5rem; font-weight: 700;
   width: 32px; height: 32px; padding-bottom: 5px;
 }
-.modal-close:hover, .modal-minimize:hover {
+.modal-print {
+  font-size: 1.15rem;
+  width: 32px; height: 32px;
+}
+.modal-close:hover, .modal-minimize:hover, .modal-print:hover {
   color: var(--accent);
   background: var(--bg);
   border-color: var(--rule);
+}
+.modal-print:disabled {
+  opacity: 0.35; cursor: not-allowed;
 }
 .modal-minimize::after { content: ""; } /* prevents hyphen clipping */
 

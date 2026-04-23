@@ -1061,6 +1061,139 @@ function minimizeModal() {
   showMinimizedPill();
 }
 
+function printExplanation() {
+  const body = $("#modal-body");
+  if (!body) return;
+  const bodyClone = body.cloneNode(true);
+  // Strip the blinking cursor span(s) from the clone so they don't print.
+  bodyClone.querySelectorAll(".cursor").forEach(el => el.remove());
+  const bodyHtml = bodyClone.innerHTML.trim();
+  if (!bodyHtml) return;
+
+  const kind = ($("#modal-kind").textContent || "").trim();
+  const ref = ($("#modal-ref").textContent || "").trim();
+  const sourceHtml = $("#modal-source").innerHTML;
+  const title = [kind, ref].filter(Boolean).join(" · ") || "PshatGPT";
+  const printedAt = new Date().toLocaleString();
+
+  const win = window.open("", "_blank", "width=820,height=900");
+  if (!win) {
+    alert("Couldn't open the print window — please allow pop-ups for this site.");
+    return;
+  }
+  win.document.open();
+  win.document.write(`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>${escapeHtml(title)} — PshatGPT</title>
+<style>
+  @page { margin: 0.75in; }
+  body {
+    font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+    color: #1a1410;
+    line-height: 1.6;
+    max-width: 720px;
+    margin: 1.5rem auto;
+    padding: 0 1rem;
+  }
+  header.print-head {
+    border-bottom: 1px solid #b8a888;
+    padding-bottom: 0.7rem;
+    margin-bottom: 1rem;
+  }
+  .print-kind {
+    display: inline-block;
+    font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em;
+    background: #1a1410; color: #fdf9ef;
+    padding: 0.2rem 0.55rem; border-radius: 3px; margin-right: 0.6rem;
+    vertical-align: middle;
+  }
+  .print-ref {
+    font-family: 'Menlo', 'Consolas', monospace;
+    font-size: 0.9rem; color: #5a4a36;
+    vertical-align: middle;
+  }
+  .print-meta {
+    font-size: 0.72rem; color: #7a6a56; margin-top: 0.4rem;
+  }
+  .print-source {
+    background: #fbf6e9;
+    border: 1px solid #ead9b4;
+    padding: 0.7rem 1rem;
+    margin-bottom: 1.2rem;
+    border-radius: 3px;
+  }
+  .hebrew-text {
+    font-family: 'Frank Ruhl Libre', 'SBL Hebrew', 'Times New Roman', serif;
+    font-size: 1.1rem; direction: rtl; text-align: right;
+    line-height: 1.8;
+  }
+  .print-body h3 {
+    font-size: 1.05rem; color: #7a1f2e; margin: 1.1rem 0 0.5rem;
+  }
+  .print-body h4 {
+    font-size: 0.95rem; margin: 0.9rem 0 0.4rem;
+  }
+  .print-body h3:first-child, .print-body h4:first-child { margin-top: 0; }
+  .print-body p { margin: 0 0 0.6rem; }
+  .print-body ul { margin: 0 0 0.6rem; padding-left: 1.3rem; }
+  .print-body li { margin-bottom: 0.3rem; }
+  .print-body strong { color: #7a1f2e; }
+  .print-body em { font-style: italic; }
+  .print-body code {
+    font-family: 'Menlo', 'Consolas', monospace; font-size: 0.85em;
+    background: #f2ead2; padding: 0.1rem 0.3rem; border-radius: 2px;
+  }
+  .print-body .turn-user {
+    border-left: 2px solid #7a1f2e;
+    background: #f5ecd5;
+    padding: 0.6rem 0.9rem;
+    margin: 1rem 0 0.6rem;
+    font-style: italic;
+  }
+  .print-body .turn-user::before {
+    content: "you asked";
+    display: block;
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; font-style: normal;
+    color: #7a1f2e; margin-bottom: 0.3rem;
+    font-family: Georgia, serif;
+  }
+  .print-body .tool-use-note {
+    display: none;
+  }
+  .cursor { display: none; }
+  footer.print-foot {
+    margin-top: 1.5rem; padding-top: 0.6rem;
+    border-top: 1px solid #d9cfb7;
+    font-size: 0.7rem; color: #7a6a56; text-align: center;
+  }
+  @media print {
+    body { margin: 0; }
+    .no-print { display: none !important; }
+  }
+</style>
+</head>
+<body>
+  <header class="print-head">
+    <span class="print-kind">${escapeHtml(kind)}</span>
+    <span class="print-ref">${escapeHtml(ref)}</span>
+    <div class="print-meta">PshatGPT · printed ${escapeHtml(printedAt)}</div>
+  </header>
+  <div class="print-source">${sourceHtml}</div>
+  <div class="print-body">${bodyHtml}</div>
+  <footer class="print-foot">ys770.github.io/PshatGPT</footer>
+  <script>
+    window.addEventListener("load", function () {
+      setTimeout(function () { window.focus(); window.print(); }, 150);
+    });
+  <\/script>
+</body>
+</html>`);
+  win.document.close();
+}
+
 function restoreModal() {
   $("#modal").classList.remove("modal-hidden");
   $("#minimized-pill").classList.add("minimized-hidden");
@@ -1977,6 +2110,7 @@ $$(".amud-btn").forEach(b => {
 });
 $$("[data-close]").forEach(el => el.addEventListener("click", closeModal));
 $$("[data-minimize]").forEach(el => el.addEventListener("click", minimizeModal));
+$$("[data-print]").forEach(el => el.addEventListener("click", printExplanation));
 // Restore on pill click (but not when clicking the X button inside)
 $("#minimized-pill").addEventListener("click", (e) => {
   if (e.target.closest(".pill-close")) return;

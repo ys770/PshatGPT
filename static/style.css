@@ -190,11 +190,14 @@ main { max-width: 1400px; margin: 0 auto; padding: 2rem; }
   padding: 0.2rem 0.55rem; border-radius: 3px; margin-right: 0.6rem;
 }
 .modal-ref { font-size: 0.85rem; color: var(--muted); font-family: monospace; }
-.modal-close {
+.modal-header-actions { display: flex; gap: 0.3rem; align-items: center; }
+.modal-close, .modal-print {
   background: transparent; border: none; color: var(--muted);
-  font-size: 1.6rem; line-height: 1; cursor: pointer; padding: 0 0.3rem;
+  line-height: 1; cursor: pointer; padding: 0 0.3rem;
 }
-.modal-close:hover { color: var(--accent); }
+.modal-close { font-size: 1.6rem; }
+.modal-print { font-size: 1.25rem; }
+.modal-close:hover, .modal-print:hover { color: var(--accent); }
 .modal-source {
   padding: 0.9rem 1.25rem;
   background: var(--bg);
