@@ -28,7 +28,7 @@ class LLMClient:
     def __init__(
         self,
         model: str = "claude-sonnet-4-5",
-        max_tokens: int = 32000,
+        max_tokens: int = 16384,
         api_key: str | None = None,
     ):
         # Prefer explicit api_key, fall back to env.
@@ -53,7 +53,11 @@ class LLMClient:
         return response.content[0].text
 
     def stream(
-        self, system: str, user_message: str, temperature: float = 0.5
+        self,
+        system: str,
+        user_message: str,
+        temperature: float = 0.5,
+        max_tokens: int | None = None,
     ) -> Iterator[dict]:
         """Yield structured events as they arrive from Claude.
 
@@ -65,10 +69,11 @@ class LLMClient:
         message_delta event. That's the only authoritative source — relying on
         helpers like get_final_message() has proven flaky across SDK versions.
         """
+        effective_max = max_tokens if max_tokens is not None else self.max_tokens
         stop_reason: str | None = None
         with self.client.messages.stream(
             model=self.model,
-            max_tokens=self.max_tokens,
+            max_tokens=effective_max,
             temperature=temperature,
             system=system,
             messages=[{"role": "user", "content": user_message}],

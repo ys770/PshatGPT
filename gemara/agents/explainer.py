@@ -61,6 +61,25 @@ def _build_context(item: dict) -> str:
     return "\n".join(lines)
 
 
+# Empirically, explanations run ~6 output tokens per Hebrew source character
+# (covers both verbose Tosfos and short gemara lines). 4096 is the floor so
+# any segment has room; 16384 is the ceiling, which comfortably covers the
+# longest Tosfos observed.
+_OUTPUT_TOKENS_PER_SOURCE_CHAR = 6
+_MIN_BUDGET = 4096
+_MAX_BUDGET = 16384
+
+
+def _estimate_budget(item: dict) -> int:
+    """Pick a max_tokens budget proportional to the source text length."""
+    text = item.get("text") or ""
+    # For a commentary, the gemara line it quotes is part of the context too.
+    if item.get("kind") == "commentary":
+        text += item.get("on_segment_hebrew") or ""
+    est = len(text) * _OUTPUT_TOKENS_PER_SOURCE_CHAR
+    return max(_MIN_BUDGET, min(_MAX_BUDGET, est))
+
+
 def explain_stream(llm: LLMClient, item: dict) -> Iterator[dict]:
     """Stream explanation events for a clicked item.
 
@@ -68,4 +87,5 @@ def explain_stream(llm: LLMClient, item: dict) -> Iterator[dict]:
     terminal {"type": "done", "stop_reason": "..."} event.
     """
     user_msg = _build_context(item)
-    yield from llm.stream(SYSTEM_PROMPT, user_msg, temperature=0.3)
+    budget = _estimate_budget(item)
+    yield from llm.stream(SYSTEM_PROMPT, user_msg, temperature=0.3, max_tokens=budget)
