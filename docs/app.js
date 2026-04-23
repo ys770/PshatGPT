@@ -1808,6 +1808,7 @@ async function streamTurn(toolRound = 0) {
   // Accumulate both text and tool_use blocks as they stream in.
   let accumulatedText = "";
   let stopReason = null;
+  let streamErrorMessage = null;
   const contentBlocks = []; // [{type:'text',text:'...'}, {type:'tool_use',id,name,input}]
   const toolInputAccumulators = {}; // index → partial JSON string
 
@@ -1864,7 +1865,10 @@ async function streamTurn(toolRound = 0) {
       }
     }
   } catch (err) {
-    if (err.name !== "AbortError") console.error(err);
+    if (err.name !== "AbortError") {
+      console.error(err);
+      streamErrorMessage = err.message || String(err);
+    }
   }
 
   updateAssistantText(assistantDiv, accumulatedText);
@@ -1911,9 +1915,53 @@ async function streamTurn(toolRound = 0) {
   }
   currentStream = null;
   input.disabled = false; sendBtn.disabled = false;
+  finalizeStreamStatus(assistantDiv, terminalStatusFor(stopReason, accumulatedText, streamErrorMessage));
   if (!$("#modal").classList.contains("modal-hidden")) input.focus();
   // If minimized, update pill to show "done" state.
   updateMinimizedPillState();
+}
+
+// Pick the user-visible status for a completed stream. `null` = show nothing.
+function terminalStatusFor(stopReason, text, errorMessage) {
+  if (errorMessage) {
+    return {
+      kind: "error",
+      text: text ? `Stream interrupted — ${errorMessage}` : `Error — ${errorMessage}`,
+    };
+  }
+  if (stopReason === "max_tokens") {
+    return {
+      kind: "truncated",
+      text: "Response hit the length cap and was truncated. Ask a follow-up to continue.",
+    };
+  }
+  if (stopReason === "tool_use") {
+    // tool_use at this point means we exhausted MAX_TOOL_ROUNDS without Claude finishing.
+    return { kind: "truncated", text: "Stopped — reached the tool-call limit for this turn." };
+  }
+  if (stopReason === null) {
+    return {
+      kind: "error",
+      text: text ? "Connection dropped before the response finished." : "No response received.",
+    };
+  }
+  // end_turn, stop_sequence — normal completion.
+  return { kind: "done", text: "done" };
+}
+
+function finalizeStreamStatus(assistantDiv, status) {
+  if (!assistantDiv) return;
+  // Strip the blinking cursor — streaming has stopped.
+  const mdDiv = assistantDiv.querySelector(".md-content");
+  if (mdDiv) mdDiv.querySelectorAll(".cursor").forEach((el) => el.remove());
+  assistantDiv.querySelectorAll(":scope > .cursor").forEach((el) => el.remove());
+  // Replace any prior status strip (safe across tool-loop recursion or re-finalize).
+  assistantDiv.querySelectorAll(".stream-status").forEach((el) => el.remove());
+  if (!status) return;
+  const strip = document.createElement("div");
+  strip.className = `stream-status stream-status-${status.kind}`;
+  strip.textContent = status.text;
+  assistantDiv.appendChild(strip);
 }
 
 function updateAssistantText(assistantDiv, text) {
