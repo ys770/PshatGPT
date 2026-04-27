@@ -243,7 +243,7 @@ async function fetchDafSegments(baseRef) {
     segments.push({
       ref: `${baseRef}:${i+1}`,
       index: i+1,
-      hebrew: (hebrew[i] || "").trim(),
+      hebrew: clean(hebrew[i] || ""),
       english: clean(english[i] || ""),
       commentaries: [],
     });
